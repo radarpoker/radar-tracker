@@ -990,6 +990,7 @@ let curMode='live',loginMode='player';
 let idEntry='',pinEntry='';
 let activeFiltersS=[],activeFiltersA=[],activeFiltersAT=[],fpCtx='student';
 let studSessSort={col:'date',dir:'desc'},allSessSort={col:'date',dir:'desc'};
+let studTransSort={col:'date',dir:'desc'},adminTransSort={col:'date',dir:'desc'};
 let curTransferType='transfer';
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
@@ -1221,6 +1222,8 @@ function renderStudStats(){
 }
 
 function sortStudSess(col){studSessSort.dir=studSessSort.col===col?(studSessSort.dir==='asc'?'desc':'asc'):(col==='date'||col==='profit'||col==='buy_in'||col==='cash_out'?'desc':'asc');studSessSort.col=col;renderStudSessions();}
+function sortStudTrans(col){studTransSort.dir=studTransSort.col===col?(studTransSort.dir==='asc'?'desc':'asc'):(col==='date'||col==='amount'?'desc':'asc');studTransSort.col=col;renderStudTransfers();}
+function sortAdminTrans(col){adminTransSort.dir=adminTransSort.col===col?(adminTransSort.dir==='asc'?'desc':'asc'):(col==='date'||col==='amount'?'desc':'asc');adminTransSort.col=col;renderAdminTransfers();}
 
 function renderStudSessions(){
   let rows=applyFilters(modeSess(),activeFiltersS);
@@ -1366,14 +1369,16 @@ function renderStudContract(){
 function renderStudTransfers(){
   const el=$('s-transfers-body');
   if(!myTransfers.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
-  const rows=[...myTransfers].sort((a,b)=>b.date.localeCompare(a.date));
+  let rows=sortRows([...myTransfers],studTransSort);
   batchVisibleTransIds=rows.map(t=>t.id);
   const myName=(me?me.name:'').toLowerCase();
   const studentTerms=['student'];
   const isMe=v=>v&&(v.toLowerCase()===myName||studentTerms.includes(v.toLowerCase()));
   const isSite=v=>v&&!isMe(v)&&v.toLowerCase()!=='backer'&&!/^(makaya|ned|radar poker)$/i.test(v);
+  const arrow=c=>studTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(studTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortStudTrans('${c}')">${l}${arrow(c)}</th>`;
   el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
-    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th><th>Date</th><th>Type</th><th>Sender</th><th>Receiver</th><th>Amount</th><th>Notes</th><th></th></tr></thead>
+    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Type','ttype')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}<th>Notes</th><th></th></tr></thead>
     <tbody>${rows.map(t=>{
       const split=t.type==='split';
       const rcv=t.receiver||'',snd=t.sender||'';
@@ -1391,7 +1396,7 @@ function renderStudTransfers(){
       <td>${esc(snd)}</td><td>${esc(rcv)}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
-      <td><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+      <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
     </tr>`;}).join('')}</tbody></table>`;
 }
 
@@ -1683,8 +1688,11 @@ function renderAdminTransfers(){
   const el=$('a-transfers-body');
   if(!rows.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
   const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  rows=sortRows(rows,adminTransSort,sm);
+  const arrow=c=>adminTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(adminTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortAdminTrans('${c}')">${l}${arrow(c)}</th>`;
   el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans-adm"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
-    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th><th>Date</th><th>Type</th><th>Student</th><th>Sender</th><th>Receiver</th><th>Amount</th><th>Split Month</th><th>Notes</th><th></th></tr></thead>
+    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Type','ttype')}${th('Student','student')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}${th('Split Month','split_month')}<th>Notes</th><th></th></tr></thead>
     <tbody>${rows.map(t=>{
       const isSplit=t.type==='split';
       const studName=sm[t.student_id]||'';
@@ -1701,7 +1709,7 @@ function renderAdminTransfers(){
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);">${t.split_month||'—'}</td>
       <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
-      <td><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+      <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
     </tr>`;}).join('')}</tbody></table>`;
 }
 
@@ -2139,6 +2147,40 @@ function onSplitCutChange(){
   const sc=parseFloat($('t-stud-cut').value)||0,sk=parseFloat($('t-stak-cut').value)||0;
   $('t-amount').value=sc+sk;
 }
+function editTransfer(id){
+  const t=isAdmin?allTransfers.find(x=>x.id===id):myTransfers.find(x=>x.id===id);
+  if(!t)return;
+  openTransferModal();
+  editTransferId=id;
+  $('transfer-modal-title').textContent='Edit Transfer';
+  $('transfer-save-btn').textContent='Update';
+  $('t-date').value=t.date;
+  $('t-amount').value=t.amount||'';
+  // Set type
+  setTransferType(t.type||'transfer');
+  // Set student
+  if(isAdmin&&t.student_id){setCdd('t-student',t.student_id,`#${t.student_id}`,null);}
+  // Set sender/receiver
+  setCdd('t-sender',t.sender||'',t.sender||'',null);
+  setCdd('t-receiver',t.receiver||'',t.receiver||'',null);
+  updateTransferDest();
+  // Parse dest from notes
+  const destMatch=(t.notes||'').match(/^Dest:\s*([^|]+)/);
+  if(destMatch){
+    const dest=destMatch[1].trim();
+    setCdd('t-dest',dest,dest,null);
+    const cleanNotes=(t.notes||'').replace(/^Dest:\s*[^|]+\s*\|\s*/,'').replace(/^Dest:\s*[^|]+$/,'').trim();
+    $('t-notes').value=cleanNotes;
+  } else {
+    $('t-notes').value=t.notes||'';
+  }
+  // Split fields
+  if(t.type==='split'){
+    $('t-split-month').value=t.split_month||'';
+    $('t-stud-cut').value=t.student_cut||'';
+    $('t-stak-cut').value=t.staker_cut||'';
+  }
+}
 function updateTransferDest(){
   const destm=$('t-dest-menu');if(!destm)return;
   const receiver=($('t-receiver').value||'').toLowerCase();
@@ -2187,15 +2229,17 @@ async function saveTransfer(){
     ...(curTransferType==='split'?{split_month:$('t-split-month').value,student_cut:parseFloat($('t-stud-cut').value)||null,staker_cut:parseFloat($('t-stak-cut').value)||null}:{})
   };
   const btn=$('transfer-save-btn');btn.textContent='Saving…';btn.disabled=true;
-  const{error}=await SB.from('transfers').insert([row]);
-  btn.textContent='Save';btn.disabled=false;
+  const{error}=editTransferId
+    ?await SB.from('transfers').update(row).eq('id',editTransferId)
+    :await SB.from('transfers').insert([row]);
+  btn.textContent=editTransferId?'Update':'Save';btn.disabled=false;
   if(error){toast('Error: '+error.message,'err');return;}
-  // Update bankroll: splits reduce student bankroll by total payout
-  if(curTransferType==='split'&&sid){
+  // Update bankroll: splits reduce student bankroll by total payout (new transfers only)
+  if(!editTransferId&&curTransferType==='split'&&sid){
     const totalPayout=parseFloat($('t-amount').value)||0;
     if(totalPayout>0)await SB.from('bankroll_entries').insert([{student_id:sid,amount:-totalPayout,source_type:'transfer',notes:`Split ${$('t-split-month').value}`}]);
   }
-  toast('Transfer saved','ok');cov('transfer-overlay');isAdmin?loadAdminData():loadStudData();
+  toast(editTransferId?'Transfer updated':'Transfer saved','ok');cov('transfer-overlay');isAdmin?loadAdminData():loadStudData();
 }
 async function delTransfer(id){
   if(!confirm('Delete this transfer?'))return;
@@ -2535,6 +2579,11 @@ function sortRows(rows,srt,sm={}){
       case 'cash_out':av=+a.cash_out||0;bv=+b.cash_out||0;break;
       case 'profit':av=+a.profit||0;bv=+b.profit||0;break;
       case 'duration':av=parseDur(a.duration);bv=parseDur(b.duration);break;
+      case 'sender':av=a.sender||'';bv=b.sender||'';break;
+      case 'receiver':av=a.receiver||'';bv=b.receiver||'';break;
+      case 'amount':av=+a.amount||0;bv=+b.amount||0;break;
+      case 'ttype':av=a.type||'';bv=b.type||'';break;
+      case 'split_month':av=a.split_month||'';bv=b.split_month||'';break;
       default:return 0;
     }
     if(av<bv)return dir==='asc'?-1:1;if(av>bv)return dir==='asc'?1:-1;return 0;
