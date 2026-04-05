@@ -11,7 +11,7 @@
 :root{
   --bg:#000;--s1:#050f05;--s2:#091409;--s3:#0d1a0d;
   --border:rgba(74,222,128,0.08);--border2:rgba(74,222,128,0.14);--border3:rgba(74,222,128,0.28);
-  --text:#c8e6c8;--muted:#1a4a1a;--muted2:#2d6b2d;
+  --text:#d4efd4;--muted:#238a23;--muted2:#3a8a3a;
   --accent:#4ade80;--accent-dim:rgba(74,222,128,0.10);--accent-border:rgba(74,222,128,0.35);
   --red:#ff4444;--red-dim:rgba(255,68,68,0.1);
   --live:#38bdf8;--live-dim:rgba(56,189,248,0.08);--live-border:rgba(56,189,248,0.3);
@@ -21,6 +21,11 @@
   --mono:'JetBrains Mono',monospace;--display:'Orbitron',sans-serif;--body:'Rajdhani',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*{scrollbar-width:thin;scrollbar-color:var(--border3) transparent}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
 html{font-size:16px}
 body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
 @keyframes radarSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -2175,13 +2180,24 @@ function toggleCdd(triggerId,menuId){
   const wrap=trigger.closest('.cdd-wrap');
   if(menu.style.display==='none'){
     if(_openCdd&&_openCdd!==wrap){closeCdd(_openCdd);}
+    // Position menu with fixed positioning if inside a modal/overlay to avoid clipping
+    const inModal=trigger.closest('.modal,.fp-box,#batch-input-area');
+    if(inModal){
+      const rect=trigger.getBoundingClientRect();
+      menu.style.position='fixed';
+      menu.style.top=(rect.bottom+4)+'px';
+      menu.style.left=rect.left+'px';
+      menu.style.width=rect.width+'px';
+      menu.style.zIndex='9000';
+    }
     menu.style.display='block';trigger.classList.add('open');_openCdd=wrap;
   } else {closeCdd(wrap);}
 }
 function closeCdd(wrap){
   if(!wrap)return;
   const menu=wrap.querySelector('.cdd-menu');const trigger=wrap.querySelector('.cdd-trigger');
-  if(menu)menu.style.display='none';if(trigger)trigger.classList.remove('open');
+  if(menu){menu.style.display='none';menu.style.position='';menu.style.top='';menu.style.left='';menu.style.width='';menu.style.zIndex='';}
+  if(trigger)trigger.classList.remove('open');
   if(_openCdd===wrap)_openCdd=null;
 }
 function setCdd(hiddenId,value,label,optEl){
