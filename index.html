@@ -1494,13 +1494,9 @@ async function loadAdminData(){
   // Transfer modal: student + party dropdowns
   const tsm=$('t-student-menu');if(tsm)tsm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('t-student','${it.value}','${it.label.replace(/'/g,"\\'")}',this);onTransferStudentChange()">${esc(it.label)}</div>`).join('');
   const partyOpts=allParties.map(p=>({value:p.name,label:p.name}));
-  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-sender','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
-  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
-  // Destination dropdown: venues from all sessions + staker names + common destinations
-  const destVenues=[...new Set(allSess.map(s=>s.venue).filter(Boolean))].sort();
-  const destStakers=allStakers.map(s=>s.name);
-  const destOpts=[...new Set([...destVenues,...destStakers,'Bank','Crypto'])];
-  const destm=$('t-dest-menu');if(destm)destm.innerHTML=destOpts.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-sender','${it.value}','${it.label}',this);updateTransferDest()">${esc(it.label)}</div>`).join('');
+  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${it.value}','${it.label}',this);updateTransferDest()">${esc(it.label)}</div>`).join('');
+  updateTransferDest();
 
   try{renderStudentsTab();}catch(e){console.error('renderStudentsTab',e);}
   try{renderAllSess();}catch(e){console.error('renderAllSess',e);}
@@ -2080,14 +2076,11 @@ function openTransferModal(){
   const platforms=isAdmin?[...new Set(allSess.map(s=>s.venue).filter(Boolean))]:
     (me.play_types!=='online'&&hasActiveLiveT?['Live Roll',...myVenues]:[...new Set(source.map(s=>s.venue).filter(Boolean)),...myVenues]);
   const parties=[...new Set(['Student',...backerNames,...platforms])];
-  const partyOpts=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('');
-  const partyOptsR=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('');
+  const partyOpts=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this);updateTransferDest()">${esc(p)}</div>`).join('');
+  const partyOptsR=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this);updateTransferDest()">${esc(p)}</div>`).join('');
   const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts;
   const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOptsR;
-  // Destination dropdown: venues + stakers + common destinations
-  const destVenues=[...new Set(source.map(s=>s.venue).filter(Boolean))].sort();
-  const destAll=[...new Set([...destVenues,...backerNames,'Bank','Crypto'])];
-  const destm=$('t-dest-menu');if(destm)destm.innerHTML=destAll.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+  updateTransferDest();
   // reset sender/receiver/dest labels
   const sl=$('t-sender-label');if(sl){sl.textContent='Select…';sl.style.color='var(--muted2)';}
   const rl=$('t-receiver-label');if(rl){rl.textContent='Select…';rl.style.color='var(--muted2)';}
@@ -2145,6 +2138,38 @@ function autoFillSplit(){
 function onSplitCutChange(){
   const sc=parseFloat($('t-stud-cut').value)||0,sk=parseFloat($('t-stak-cut').value)||0;
   $('t-amount').value=sc+sk;
+}
+function updateTransferDest(){
+  const destm=$('t-dest-menu');if(!destm)return;
+  const receiver=($('t-receiver').value||'').toLowerCase();
+  const sender=($('t-sender').value||'').toLowerCase();
+  const isStudentReceiver=receiver==='student';
+  const isStudentSender=sender==='student';
+  // Determine which student we're working with
+  const sid=isAdmin?$('t-student').value:(me?me.id:null);
+  const studSess=sid?(isAdmin?allSess:mySess).filter(s=>!isAdmin||s.student_id===sid):[];
+  const studContracts=sid?(isAdmin?allContracts:myContracts).filter(c=>!isAdmin||c.student_id===sid):[];
+  const hasLive=studContracts.some(c=>(c.play_type==='live'||c.play_type==='both')&&c.active!==false);
+  const sites=[...new Set(studSess.map(s=>s.venue).filter(Boolean))].sort();
+  let opts=[];
+  if(isStudentReceiver){
+    // Money going TO student — destinations are where it lands: their sites + live bankroll
+    opts=['Student'];
+    if(hasLive)opts.push('Live Bankroll');
+    opts.push(...sites);
+  } else if(isStudentSender){
+    // Money going FROM student — destinations are where it's going: backers, bank, etc
+    const backerNames=(allStakers||[]).map(s=>s.name);
+    opts=[...new Set([...backerNames,...sites,'Bank','Crypto'])];
+  } else {
+    // Neither is student — show all options
+    const backerNames=(allStakers||[]).map(s=>s.name);
+    opts=[...new Set([...sites,...backerNames,'Student','Bank','Crypto'])];
+  }
+  destm.innerHTML=opts.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+  // Reset dest selection since options changed
+  $('t-dest').value='';
+  const dl=$('t-dest-label');if(dl){dl.textContent='Select destination…';dl.style.color='var(--muted2)';}
 }
 async function saveTransfer(){
   const date=$('t-date').value,amount=parseFloat($('t-amount').value)||0;
