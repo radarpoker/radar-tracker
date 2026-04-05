@@ -1,0 +1,2584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Poker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#000;--s1:#050f05;--s2:#091409;--s3:#0d1a0d;
+  --border:rgba(74,222,128,0.08);--border2:rgba(74,222,128,0.14);--border3:rgba(74,222,128,0.28);
+  --text:#c8e6c8;--muted:#1a4a1a;--muted2:#2d6b2d;
+  --accent:#4ade80;--accent-dim:rgba(74,222,128,0.10);--accent-border:rgba(74,222,128,0.35);
+  --red:#ff4444;--red-dim:rgba(255,68,68,0.1);
+  --live:#38bdf8;--live-dim:rgba(56,189,248,0.08);--live-border:rgba(56,189,248,0.3);
+  --online:#a78bfa;--online-dim:rgba(167,139,250,0.08);--online-border:rgba(167,139,250,0.3);
+  --orange:#fbbf24;--pink:#f472b6;
+  --r:2px;--r2:3px;
+  --mono:'JetBrains Mono',monospace;--display:'Orbitron',sans-serif;--body:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;overflow-x:hidden}
+@keyframes radarSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN */
+#login-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.login-wrap{width:100%;max-width:360px;text-align:center}
+.login-logo{font-family:var(--display);font-size:52px;font-weight:700;color:var(--accent);line-height:1;margin-bottom:4px;letter-spacing:8px}
+.login-tagline{font-size:13px;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;margin-bottom:2rem}
+.mode-toggle{display:flex;gap:6px;margin-bottom:1.25rem}
+.id-display{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:2rem}
+.id-digit{width:52px;height:68px;background:#000;border:1px solid var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:32px;transition:border-color .2s,background .2s;color:var(--muted2)}
+.id-digit.filled{background:var(--s2);border-color:var(--border3);color:var(--accent)}
+.id-digit.active{border-color:var(--accent);background:var(--accent-dim)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:.75rem}
+.nk{background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--display);font-size:22px;padding:16px;cursor:pointer;transition:all .12s;letter-spacing:1px}
+.nk:hover{background:var(--s2);border-color:var(--accent-border)}
+.nk:active{transform:scale(.95)}
+.nk.del{font-family:var(--mono);font-size:15px;color:var(--muted2)}
+.login-err{font-size:13px;color:var(--red);height:18px;margin-top:.25rem}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;background:#000;border-bottom:1px solid var(--accent-border);height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1.25rem}
+.topbar-logo{font-family:var(--display);font-size:17px;font-weight:700;color:var(--accent);letter-spacing:4px;display:flex;align-items:center;gap:10px}
+.topbar-r{display:flex;align-items:center;gap:7px}
+.tbadge{font-size:14px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);background:transparent;border:1px solid var(--border2);border-radius:2px;padding:3px 8px;font-family:var(--mono)}
+.tbadge.admin{color:var(--orange);border-color:rgba(251,191,36,.35)}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border2);background:#000;padding:0 1.25rem;overflow-x:auto}
+.tab-btn{padding:11px 15px;font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);cursor:pointer;border-bottom:2px solid transparent;transition:all .14s;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--mono);white-space:nowrap}
+.tab-btn:hover{color:var(--accent)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.mode-tabs{display:flex;gap:0;padding:0 1.25rem;background:#000;border-bottom:1px solid var(--border2)}
+.mode-tab{padding:9px 18px;font-size:14px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);cursor:pointer;border-bottom:2px solid transparent;transition:all .14s;background:none;border-top:none;border-left:none;border-right:none}
+.mode-tab:hover{color:var(--accent)}
+.mode-tab.live.active{color:var(--live);border-bottom-color:var(--live)}
+.mode-tab.online.active{color:var(--online);border-bottom-color:var(--online)}
+.mode-tab.both.active{color:var(--accent);border-bottom-color:var(--accent)}
+.in-live .tab-btn.active{color:var(--live);border-bottom-color:var(--live)}
+.in-online .tab-btn.active{color:var(--online);border-bottom-color:var(--online)}
+
+/* CONTENT */
+.page{padding:1.25rem;max-width:1200px;margin:0 auto}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--r);font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .14s;border:1px solid transparent}
+.btn-p{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;font-family:var(--body);letter-spacing:.08em}
+.btn-p:hover{opacity:.83}
+.btn-p.live{background:var(--live);border-color:var(--live)}
+.btn-p.online{background:var(--online);border-color:var(--online)}
+.btn-g{background:transparent;color:var(--muted2);border-color:var(--border2)}
+.btn-g:hover{color:var(--text);background:var(--s2)}
+.btn-d{background:transparent;color:var(--red);border-color:rgba(240,80,80,.25)}
+.btn-d:hover{background:var(--red-dim)}
+.btn-sm{padding:5px 9px;font-size:14px}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:1rem}
+.sc{background:#000;border:1px solid var(--border2);border-radius:var(--r2);padding:.85rem 1rem}
+.sc-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);margin-bottom:5px;font-family:var(--mono)}
+.sc-val{font-family:var(--display);font-size:20px;letter-spacing:1px}
+.sc-val.pos{color:var(--accent)}.sc-val.neg{color:var(--red)}.sc-val.neu{color:var(--text)}
+.sc-val.live-c{color:var(--live)}.sc-val.online-c{color:var(--online)}
+
+/* CARD */
+.card{background:#000;border:1px solid var(--border2);border-radius:var(--r2);margin-bottom:10px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;border-bottom:1px solid var(--border2);background:var(--s1)}
+.card-title{font-family:var(--body);font-size:14px;font-weight:600;letter-spacing:.08em}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);border-bottom:1px solid var(--border2);background:#000;white-space:nowrap;font-family:var(--mono)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--s2)}
+td{padding:9px 12px;vertical-align:middle;white-space:nowrap}
+tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid rgba(74,222,128,0.28)!important}
+
+/* BADGES */
+.bdg{display:inline-block;padding:2px 7px;border-radius:3px;font-size:12px;letter-spacing:.04em;border:1px solid;font-family:var(--mono)}
+.b-nlh{color:var(--live);border-color:rgba(80,184,240,.3);background:rgba(80,184,240,.06)}
+.b-plo4{color:var(--online);border-color:rgba(176,96,240,.3);background:rgba(176,96,240,.06)}
+.b-plo5{color:var(--orange);border-color:rgba(240,144,64,.3);background:rgba(240,144,64,.06)}
+.b-mix{color:var(--pink);border-color:rgba(240,96,168,.3);background:rgba(240,96,168,.06)}
+.b-oth{color:var(--muted2);border-color:var(--border2)}
+.b-act{color:var(--accent);border-color:var(--accent-border);background:var(--accent-dim)}
+.b-off{color:var(--muted);border-color:var(--border2)}
+.b-live{color:var(--live);border-color:var(--live-border);background:var(--live-dim)}
+.b-online{color:var(--online);border-color:var(--online-border);background:var(--online-dim)}
+/* STAKE BADGES — unique color per level */
+.b-sk-10nl{color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)}
+.b-sk-25nl{color:#fbbf24;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+.b-sk-50nl{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
+.b-sk-100nl{color:#a78bfa;border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.08)}
+.b-sk-200nl{color:#fb923c;border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.08)}
+.b-sk-500nl{color:#f472b6;border-color:rgba(244,114,182,.35);background:rgba(244,114,182,.08)}
+.b-sk-1knl{color:#f87171;border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.08)}
+.b-sk-2knl{color:#e879f9;border-color:rgba(232,121,249,.35);background:rgba(232,121,249,.08)}
+.b-sk-5knl{color:#fff;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1);text-shadow:0 0 8px rgba(255,255,255,.6)}
+.b-sk-live-1-2{color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)}
+.b-sk-live-1-3{color:#34d399;border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08)}
+.b-sk-live-2-3{color:#22d3ee;border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.08)}
+.b-sk-live-2-5{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
+.b-sk-live-3-5{color:#818cf8;border-color:rgba(129,140,248,.35);background:rgba(129,140,248,.08)}
+.b-sk-live-5-5{color:#a78bfa;border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.08)}
+.b-sk-live-5-10{color:#fbbf24;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+.b-sk-live-10-20{color:#fb923c;border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.08)}
+.b-sk-live-10-25{color:#f472b6;border-color:rgba(244,114,182,.35);background:rgba(244,114,182,.08)}
+.b-sk-live-25-50{color:#f87171;border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.08)}
+.b-sk-live-50-100{color:#ef4444;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
+.b-sk-live-high{color:#e879f9;border-color:rgba(232,121,249,.35);background:rgba(232,121,249,.08)}
+.b-sk-live-nosebleed{color:#fff;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1);text-shadow:0 0 8px rgba(255,255,255,.6)}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:#000;border:1px solid var(--accent-border);border-radius:var(--r2);padding:1.6rem;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;transform:translateY(10px);transition:transform .18s}
+.overlay.open .modal{transform:translateY(0)}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem}
+.modal-hd h3{font-family:var(--body);font-size:16px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.mclose{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+.mclose:hover{color:var(--text)}
+
+/* FORM */
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.fr.one{grid-template-columns:1fr}
+.fr.three{grid-template-columns:1fr 1fr 1fr}
+.fld label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%;background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:8px 10px;outline:none;transition:border-color .15s}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent)}
+.fld select option{background:#000}
+.fld textarea{resize:vertical;min-height:65px}
+.form-footer{display:flex;gap:7px;justify-content:flex-end;margin-top:1.4rem;padding-top:1.1rem;border-top:1px solid var(--border)}
+
+/* TIER ROWS */
+.tier-row{display:grid;grid-template-columns:1fr 1fr 34px;gap:6px;align-items:center;margin-bottom:5px}
+.tier-row input{width:100%;background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:7px 9px;outline:none}
+.tier-row input:focus{border-color:var(--accent)}
+.tier-rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px;border-radius:3px}
+.tier-rm:hover{color:var(--red)}
+.tier-add{background:none;border:1px dashed var(--border2);border-radius:var(--r);color:var(--muted);font-size:14px;font-family:var(--mono);padding:7px;cursor:pointer;width:100%;transition:all .14s;margin-top:3px}
+.tier-add:hover{border-color:var(--border3);color:var(--text)}
+
+/* FORMAT CHIPS */
+.fmt-chips{display:flex;flex-wrap:wrap;gap:5px}
+.fmt-chip{padding:4px 10px;border-radius:3px;font-size:14px;border:1px solid var(--border2);cursor:pointer;transition:all .12s;background:var(--s2);color:var(--muted2);font-family:var(--mono);user-select:none}
+.fmt-chip:hover{border-color:var(--border3);color:var(--text)}
+.on-nlh{color:var(--live)!important;border-color:rgba(80,184,240,.5)!important;background:rgba(80,184,240,.08)!important}
+.on-plo4{color:var(--online)!important;border-color:rgba(176,96,240,.5)!important;background:rgba(176,96,240,.08)!important}
+.on-plo5{color:var(--orange)!important;border-color:rgba(240,144,64,.5)!important;background:rgba(240,144,64,.08)!important}
+.on-mixed{color:var(--pink)!important;border-color:rgba(240,96,168,.5)!important;background:rgba(240,96,168,.08)!important}
+.on-other{color:var(--text)!important;border-color:var(--border3)!important;background:var(--s3)!important}
+
+/* SPLIT PILLS */
+.split-bar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:1rem}
+.split-pill{padding:3px 9px;border-radius:3px;font-size:13px;border:1px solid var(--border2);white-space:nowrap;font-family:var(--mono)}
+.split-pill.cur{background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent)}
+.split-pill.cur-live{background:var(--live-dim);border-color:var(--live-border);color:var(--live)}
+.split-pill.cur-online{background:var(--online-dim);border-color:var(--online-border);color:var(--online)}
+
+/* BAR CHART */
+.bar-chart{display:flex;flex-direction:column;gap:5px}
+.bar-row{display:flex;align-items:center;gap:7px}
+.bar-lbl{font-size:13px;color:var(--muted2);width:90px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.bar-lbl:hover{color:var(--accent)}
+.bar-track{flex:1;height:15px;background:var(--s2);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.bar-val{font-size:13px;color:var(--muted2);white-space:nowrap;min-width:55px}
+.bar-fill-makeup{background:rgba(255,68,68,0.4)}
+
+/* STUDENT CARDS */
+.stud-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:9px;margin-bottom:1rem}
+.stud-card{background:#000;border:1px solid var(--border2);border-radius:var(--r2);padding:1rem;transition:border-color .15s;cursor:pointer}
+.stud-card:hover{border-color:var(--accent-border)}
+.stud-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem}
+.stud-id{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent);line-height:1}
+.stud-name{font-family:var(--body);font-size:16px;font-weight:600;letter-spacing:.05em;margin-bottom:2px;color:var(--accent)}
+.stud-meta{font-size:13px;color:var(--muted)}
+.stud-pnl-row{display:flex;gap:1.5rem;margin-top:.5rem}
+.stud-pnl-blk{display:flex;flex-direction:column}
+.stud-pnl-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);font-family:var(--mono)}
+.stud-pnl-val{font-family:var(--display);font-size:16px;letter-spacing:1px}
+.stud-acts{display:flex;gap:5px;margin-top:.85rem;padding-top:.85rem;border-top:1px solid var(--border);flex-wrap:wrap}
+.stud-acts .btn{padding:2px 7px;font-size:12px;}
+.type-badges{display:flex;gap:4px;margin-top:4px}
+
+/* STUDENTS TAB - SPLIT LAYOUT */
+.students-split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.students-col-hd{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-family:var(--mono)}
+.students-col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rank-card{background:#000;border:1px solid var(--border2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden}
+.rank-card-hd{padding:.6rem 1rem;border-bottom:1px solid var(--border2);font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);font-family:var(--mono)}
+.rank-row{display:flex;align-items:center;gap:8px;padding:.7rem 1rem;border-bottom:1px solid var(--border)}
+.rank-row:last-child{border-bottom:none}
+.rank-row:hover{background:var(--s2)}
+.rank-num{font-family:var(--display);font-size:13px;color:var(--muted2);width:18px;text-align:center;flex-shrink:0}
+.rank-name{flex:1;font-family:var(--body);font-size:14px;font-weight:600;cursor:pointer;color:var(--accent)}
+.rank-name:hover{text-decoration:underline}
+.rank-val{font-family:var(--mono);font-size:13px}
+.rank-bar{height:3px;background:var(--s2);border-radius:2px;margin-top:3px;overflow:hidden}
+.rank-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.makeup-row .rank-val{color:var(--red)}
+.makeup-row .rank-bar-fill{background:rgba(255,68,68,0.5)}
+
+/* ANALYTICS */
+.analytics-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.staker-card{background:#000;border:1px solid var(--border2);border-radius:var(--r2);padding:1rem;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.staker-card:hover{border-color:var(--accent-border)}
+.staker-name{font-family:var(--body);font-size:16px;font-weight:700;color:var(--accent);margin-bottom:.5rem;cursor:pointer}
+.staker-name:hover{text-decoration:underline}
+
+/* CONTRACTS */
+.contract-card{background:#000;border:1px solid var(--border2);border-radius:var(--r2);padding:.9rem 1rem;margin-bottom:6px}
+.contract-card.active-contract{border-color:var(--accent-border)}
+.contract-badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:11px;border:1px solid;font-family:var(--mono);margin-right:5px}
+.contract-badge.live{color:var(--live);border-color:var(--live-border)}
+.contract-badge.online{color:var(--online);border-color:var(--online-border)}
+.contract-badge.active{color:var(--accent);border-color:var(--accent-border)}
+.contract-badge.expired{color:var(--muted2);border-color:var(--border2)}
+
+/* TRANSFERS */
+.transfer-type-tab{display:flex;gap:6px;margin-bottom:1rem}
+.ttype-btn{padding:5px 14px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .12s}
+.ttype-btn.active{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+.split-autofill{background:var(--s1);border:1px solid var(--border2);border-radius:var(--r2);padding:.9rem;margin-bottom:.9rem}
+.split-autofill-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.6rem}
+
+/* FILTER */
+.filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.filter-btn{background:transparent;border:1px solid var(--border2);border-radius:var(--r);color:var(--muted2);font-family:var(--mono);font-size:13px;padding:5px 11px;cursor:pointer;transition:all .14s;display:inline-flex;align-items:center;gap:5px}
+.filter-btn:hover{border-color:var(--accent-border);color:var(--accent)}
+.filter-btn.active{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--s3);border:1px solid var(--border2);border-radius:3px;font-size:12px;color:var(--text);font-family:var(--mono)}
+.filter-chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 0 0 2px;line-height:1}
+.filter-chip button:hover{color:var(--red)}
+.fp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .18s}
+.fp-overlay.open{opacity:1;pointer-events:all}
+.fp-box{background:#000;border:1px solid var(--accent-border);border-radius:var(--r2);width:100%;max-width:460px;max-height:85vh;overflow-y:auto;transform:translateY(8px);transition:transform .18s}
+.fp-overlay.open .fp-box{transform:translateY(0)}
+.fp-head{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.2rem;border-bottom:1px solid var(--border2)}
+.fp-head h3{font-family:var(--body);font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.fp-body{padding:1rem 1.2rem}
+.fp-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);display:block;margin-bottom:6px}
+.fp-select{width:100%;background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;outline:none;margin-bottom:1rem}
+.fp-select:focus{border-color:var(--accent)}
+.fp-opts{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:.75rem}
+.fp-opt{padding:4px 10px;border-radius:3px;font-size:13px;border:1px solid var(--border2);cursor:pointer;background:var(--s2);color:var(--muted2);font-family:var(--mono);transition:all .12s;user-select:none}
+.fp-opt:hover{border-color:var(--border3);color:var(--text)}
+.fp-opt.sel{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+.fp-date-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:.75rem}
+.fp-date-row input{background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;outline:none;width:100%}
+.fp-date-row input:focus{border-color:var(--accent)}
+.fp-foot{display:flex;gap:7px;justify-content:flex-end;padding:.9rem 1.2rem;border-top:1px solid var(--border2)}
+.filter-sel{background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted2);font-family:var(--mono);font-size:13px;padding:5px 7px;outline:none;cursor:pointer}
+.filter-sel:focus{border-color:var(--accent)}
+
+/* MISC */
+.dvdr{border:none;border-top:1px solid var(--border);margin:1rem 0}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:.6rem;display:flex;align-items:center;gap:6px}
+.section-label .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.empty{text-align:center;padding:3rem 2rem;color:var(--muted)}
+.empty-icon{font-size:26px;margin-bottom:.65rem}
+.empty-msg{font-size:13px;line-height:1.7}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .65s linear infinite;vertical-align:middle;margin-right:5px}
+.loading{text-align:center;padding:3rem;color:var(--muted);font-size:14px}
+.pp{color:var(--accent)}.pn{color:var(--red)}
+.amt-in{color:var(--accent);font-family:var(--mono)}
+.amt-out{color:var(--red);font-family:var(--mono)}
+.amt-neu{color:var(--text);font-family:var(--mono)}
+tr.split-row{box-shadow:0 0 0 1px rgba(74,222,128,.45),0 0 8px rgba(74,222,128,.18);outline:1px solid rgba(74,222,128,.35)}
+.ib{background:none;border:1px solid transparent;border-radius:3px;color:var(--muted);cursor:pointer;padding:3px 5px;font-size:13px;transition:all .12s;font-family:var(--mono)}
+.ib:hover{color:var(--text);border-color:var(--border2);background:var(--s3)}
+.ib.del:hover{color:var(--red);border-color:rgba(240,80,80,.3)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:9px 15px;border-radius:var(--r);font-size:13px;z-index:9999;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;font-family:var(--mono)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.35);color:var(--accent)}
+.toast.err{background:rgba(240,80,80,.12);border:1px solid rgba(240,80,80,.35);color:var(--red)}
+
+/* BATCH EDIT */
+.batch-cb{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;margin:0}
+.batch-bar{display:none;align-items:center;gap:10px;margin-bottom:8px}
+.batch-bar.show{display:flex}
+.batch-bar .btn-batch{background:var(--accent);color:#000;font-weight:700;padding:6px 14px;border:none;border-radius:var(--r);cursor:pointer;font-family:var(--mono);font-size:13px;transition:opacity .12s}
+.batch-bar .btn-batch:hover{opacity:.85}
+.batch-bar .batch-count{color:var(--muted);font-size:12px;font-family:var(--mono)}
+tr.batch-sel{background:rgba(74,222,128,.06)!important}
+.batch-actions{display:flex;flex-direction:column;gap:6px;margin:1rem 0}
+.batch-actions label{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--text);transition:border-color .12s}
+.batch-actions label:hover{border-color:var(--accent-border)}
+.batch-actions input[type=radio]{accent-color:var(--accent)}
+.batch-actions input[type=radio]:checked+span{color:var(--accent)}
+#batch-input-area{margin-top:1rem}
+
+/* CUSTOM DROPDOWN */
+.cdd-wrap{position:relative;width:100%}
+.cdd-trigger{width:100%;background:#000;border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:8px 10px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;transition:border-color .15s;outline:none}
+.cdd-trigger:hover,.cdd-trigger.open{border-color:var(--accent)}
+.cdd-trigger .cdd-arrow{font-size:10px;color:var(--muted2);transition:transform .15s}
+.cdd-trigger.open .cdd-arrow{transform:rotate(180deg)}
+.cdd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#000;border:1px solid var(--accent-border);border-radius:var(--r2);z-index:400;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.7)}
+.cdd-opt{padding:9px 12px;font-family:var(--mono);font-size:13px;color:var(--muted2);cursor:pointer;transition:all .1s;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.cdd-opt:last-child{border-bottom:none}
+.cdd-opt:hover{background:var(--s2);color:var(--text)}
+.cdd-opt.selected{color:var(--accent);background:var(--accent-dim)}
+.cdd-opt .cdd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* small variant for filter bars */
+.cdd-trigger.sm{font-size:13px;padding:5px 8px}
+.cdd-menu.sm .cdd-opt{padding:7px 10px;font-size:13px}
+
+/* ANALYTICS COMBINED */
+.combined-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem}
+.combined-half{background:#000;border:1px solid var(--border2);border-radius:var(--r2);padding:1rem}
+.combined-half h4{font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.85rem;display:flex;align-items:center;gap:6px}
+.combined-half h4 .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+@media(max-width:768px){
+  .students-split,.analytics-split,.combined-row{grid-template-columns:1fr}
+  .fr{grid-template-columns:1fr}
+  .fr.three{grid-template-columns:1fr 1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .stud-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;">
+  <div class="login-wrap">
+    <div class="login-logo">RP</div>
+    <div class="login-tagline" id="login-tagline">// enter your 5-digit player ID</div>
+    <div class="mode-toggle">
+      <button id="mode-player-btn" onclick="setLoginMode('player')" class="nk" style="flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);">Player</button>
+      <button id="mode-admin-btn"  onclick="setLoginMode('admin')"  class="nk" style="flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;">Admin</button>
+    </div>
+    <div class="id-display" id="login-id-display">
+      <div class="id-digit" id="d0">_</div><div class="id-digit" id="d1">_</div>
+      <div class="id-digit" id="d2">_</div><div class="id-digit" id="d3">_</div>
+      <div class="id-digit" id="d4">_</div>
+    </div>
+    <div class="id-display" id="login-pin-display" style="display:none;">
+      <div class="id-digit" id="p0">_</div><div class="id-digit" id="p1">_</div>
+      <div class="id-digit" id="p2">_</div><div class="id-digit" id="p3">_</div>
+      <div class="id-digit" id="p4">_</div>
+    </div>
+    <div class="numpad" id="login-numpad">
+      <button class="nk" onclick="nkPress('7')">7</button><button class="nk" onclick="nkPress('8')">8</button><button class="nk" onclick="nkPress('9')">9</button>
+      <button class="nk" onclick="nkPress('4')">4</button><button class="nk" onclick="nkPress('5')">5</button><button class="nk" onclick="nkPress('6')">6</button>
+      <button class="nk" onclick="nkPress('1')">1</button><button class="nk" onclick="nkPress('2')">2</button><button class="nk" onclick="nkPress('3')">3</button>
+      <button class="nk del" onclick="nkDel()">⌫</button><button class="nk" onclick="nkPress('0')">0</button><div></div>
+    </div>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN LOGIN STUB ══ -->
+<div id="admin-login-screen" style="display:none;"></div>
+
+<!-- ══ STUDENT APP ══ -->
+<div id="student-app" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-logo">RADAR POKER<svg width="40" height="40" viewBox="0 0 36 36" fill="none" style="flex-shrink:0"><circle cx="18" cy="18" r="16.5" stroke="#4ade80" stroke-opacity=".25" stroke-width=".75"/><circle cx="18" cy="18" r="11" stroke="#4ade80" stroke-opacity=".2" stroke-width=".75"/><circle cx="18" cy="18" r="5.5" stroke="#4ade80" stroke-opacity=".2" stroke-width=".75"/><line x1="18" y1="1.5" x2="18" y2="34.5" stroke="#4ade80" stroke-opacity=".15" stroke-width=".75"/><line x1="1.5" y1="18" x2="34.5" y2="18" stroke="#4ade80" stroke-opacity=".15" stroke-width=".75"/><line x1="6.1" y1="6.1" x2="29.9" y2="29.9" stroke="#4ade80" stroke-opacity=".1" stroke-width=".75"/><line x1="29.9" y1="6.1" x2="6.1" y2="29.9" stroke="#4ade80" stroke-opacity=".1" stroke-width=".75"/><defs><radialGradient id="rg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#4ade80" stop-opacity=".5"/><stop offset="100%" stop-color="#4ade80" stop-opacity="0"/></radialGradient><clipPath id="rc"><circle cx="18" cy="18" r="16.5"/></clipPath></defs><g style="transform-origin:18px 18px;animation:radarSpin 3s linear infinite" clip-path="url(#rc)"><path d="M18 18 L18 1.5 A16.5 16.5 0 0 0 4.2 10.5 Z" fill="url(#rg)" opacity=".45"/><path d="M18 18 L18 1.5 A16.5 16.5 0 0 0 9.5 4.5 Z" fill="url(#rg)" opacity=".6"/><line x1="18" y1="18" x2="18" y2="1.5" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" opacity=".9"/><circle cx="18" cy="7" r="1.1" fill="#4ade80" opacity=".8"/></g><circle cx="18" cy="18" r="1.5" fill="#4ade80"/></svg></div>
+    <div class="topbar-r">
+      <span class="tbadge" id="stud-badge"></span>
+      <button class="btn btn-p btn-sm" id="log-sess-btn" onclick="openSessModal()">+ Log Session</button>
+      <button class="btn btn-g btn-sm" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+  <div class="mode-tabs" id="mode-tabs"></div>
+  <div class="tabs" id="stud-sub-tabs">
+    <button class="tab-btn active" onclick="sSubTab('sessions',this)">Sessions</button>
+    <button class="tab-btn" onclick="sSubTab('analytics',this)">Analytics</button>
+    <button class="tab-btn" onclick="sSubTab('contract',this)">Contract</button>
+    <button class="tab-btn" onclick="sSubTab('transfers',this)">Transfers</button>
+    <button class="tab-btn" onclick="sSubTab('options',this)">Options</button>
+  </div>
+  <div class="page">
+    <div class="tab-pane active" id="s-tab-sessions">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title" id="s-sess-title">Session History</div>
+          <div class="filter-bar">
+            <div id="s-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+            <button class="filter-btn" id="s-filter-btn" onclick="openFP('student')">⊞ Filter</button>
+          </div>
+        </div>
+        <div id="s-sess-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="s-tab-analytics">
+      <div class="stats-grid" id="s-stats" style="margin-bottom:9px;"></div>
+      <div class="card" style="margin-bottom:9px;overflow:visible;">
+        <div style="padding:1rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;">
+            <div class="section-label" style="margin-bottom:0" id="s-chart-lbl">By Venue</div>
+            <div class="cdd-wrap" style="width:160px;">
+              <button class="cdd-trigger sm" id="s-chart-cdd" onclick="toggleCdd('s-chart-cdd','s-chart-menu')">
+                <span id="s-chart-cdd-label">Venue</span><span class="cdd-arrow">▾</span>
+              </button>
+              <div class="cdd-menu sm" id="s-chart-menu" style="display:none;">
+                <div class="cdd-opt selected" onclick="setStudChart('venue',this)">Venue</div>
+                <div class="cdd-opt" onclick="setStudChart('format',this)">Format</div>
+                <div class="cdd-opt" onclick="setStudChart('stake',this)">Stake</div>
+                <div class="cdd-opt" onclick="setStudChart('dow',this)">Day of Week</div>
+                <div class="cdd-opt" onclick="setStudChart('month',this)">Month</div>
+              </div>
+            </div>
+          </div>
+          <div class="bar-chart" id="s-chart-main"></div>
+        </div>
+      </div>
+      <div class="card"><div style="padding:1rem;"><div class="section-label" id="s-pnl-lbl">Cumulative P&L</div><canvas id="s-pnl" height="200"></canvas></div></div>
+    </div>
+    <div class="tab-pane" id="s-tab-contract">
+      <div class="card" style="margin-bottom:9px;"><div class="card-hd"><div class="card-title" id="s-contract-title">Active Contract</div></div><div style="padding:1rem;" id="s-contract-body"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
+        <div class="card"><div style="padding:1rem;" id="s-allocation"></div></div>
+        <div class="card"><div style="padding:1rem;" id="s-makeup"></div></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="s-tab-transfers">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">Transfers</div>
+          <button class="btn btn-p btn-sm" onclick="openTransferModal()">+ New Transfer</button>
+        </div>
+        <div id="s-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
+    <div class="tab-pane" id="s-tab-options">
+      <!-- LIVE Section -->
+      <div class="section-label" style="margin-bottom:.5rem"><span class="dot" style="background:var(--live)"></span>Live</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem;">
+        <div class="card" style="border-color:var(--live-border);">
+          <div class="card-hd"><div class="card-title">Live Venues</div><button class="btn btn-p btn-sm live" onclick="addOptionItem('venue')">+ Add Venue</button></div>
+          <div id="s-live-venues-list" style="padding:.5rem"></div>
+        </div>
+        <div class="card" style="border-color:var(--live-border);">
+          <div class="card-hd"><div class="card-title">Live Stakes</div><button class="btn btn-p btn-sm live" onclick="addOptionItem('stake')">+ Add Stake</button></div>
+          <div id="s-live-stakes-list" style="padding:.5rem"></div>
+        </div>
+      </div>
+      <!-- ONLINE Section -->
+      <div class="section-label" style="margin-bottom:.5rem"><span class="dot" style="background:var(--online)"></span>Online</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="card" style="border-color:var(--online-border);">
+          <div class="card-hd"><div class="card-title">Online Sites</div><button class="btn btn-p btn-sm online" onclick="addOptionItem('venue')">+ Add Site</button></div>
+          <div id="s-online-venues-list" style="padding:.5rem"></div>
+        </div>
+        <div class="card" style="border-color:var(--online-border);">
+          <div class="card-hd"><div class="card-title">Online Stakes</div><button class="btn btn-p btn-sm online" onclick="addOptionItem('stake')">+ Add Stake</button></div>
+          <div id="s-online-stakes-list" style="padding:.5rem"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN APP ══ -->
+<div id="admin-app" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-logo">RADAR POKER<svg width="40" height="40" viewBox="0 0 36 36" fill="none" style="flex-shrink:0"><circle cx="18" cy="18" r="16.5" stroke="#4ade80" stroke-opacity=".25" stroke-width=".75"/><circle cx="18" cy="18" r="11" stroke="#4ade80" stroke-opacity=".2" stroke-width=".75"/><circle cx="18" cy="18" r="5.5" stroke="#4ade80" stroke-opacity=".2" stroke-width=".75"/><line x1="18" y1="1.5" x2="18" y2="34.5" stroke="#4ade80" stroke-opacity=".15" stroke-width=".75"/><line x1="1.5" y1="18" x2="34.5" y2="18" stroke="#4ade80" stroke-opacity=".15" stroke-width=".75"/><line x1="6.1" y1="6.1" x2="29.9" y2="29.9" stroke="#4ade80" stroke-opacity=".1" stroke-width=".75"/><line x1="29.9" y1="6.1" x2="6.1" y2="29.9" stroke="#4ade80" stroke-opacity=".1" stroke-width=".75"/><defs><radialGradient id="rg2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#4ade80" stop-opacity=".5"/><stop offset="100%" stop-color="#4ade80" stop-opacity="0"/></radialGradient><clipPath id="rc2"><circle cx="18" cy="18" r="16.5"/></clipPath></defs><g style="transform-origin:18px 18px;animation:radarSpin 3s linear infinite" clip-path="url(#rc2)"><path d="M18 18 L18 1.5 A16.5 16.5 0 0 0 4.2 10.5 Z" fill="url(#rg2)" opacity=".45"/><path d="M18 18 L18 1.5 A16.5 16.5 0 0 0 9.5 4.5 Z" fill="url(#rg2)" opacity=".6"/><line x1="18" y1="18" x2="18" y2="1.5" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" opacity=".9"/><circle cx="18" cy="7" r="1.1" fill="#4ade80" opacity=".8"/></g><circle cx="18" cy="18" r="1.5" fill="#4ade80"/></svg></div>
+    <div class="topbar-r">
+      <span class="tbadge admin">Admin</span>
+      <button class="btn btn-p btn-sm" onclick="openAddStudent()">+ Add Student</button>
+      <button class="btn btn-g btn-sm" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="aTab('students',this)">Students</button>
+    <button class="tab-btn" onclick="aTab('sessions',this)">All Sessions</button>
+    <button class="tab-btn" onclick="aTab('analytics',this)">Analytics</button>
+    <button class="tab-btn" onclick="aTab('transfers',this)">Transfers</button>
+    <button class="tab-btn" onclick="aTab('roster',this)">Roster</button>
+    <button class="tab-btn" onclick="aTab('settings',this)">Settings</button>
+  </div>
+  <div class="page">
+
+    <!-- STUDENTS TAB -->
+    <div class="tab-pane active" id="a-tab-students">
+      <div class="students-split">
+        <div>
+          <div class="students-col-hd"><span class="students-col-dot" style="background:var(--live)"></span>Live</div>
+          <div class="rank-card"><div class="rank-card-hd">P&L</div><div id="a-live-pnl-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">Hours Played</div><div id="a-live-hrs-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">$/Hour</div><div id="a-live-eph-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">Rolling Makeup</div><div id="a-live-mu-rank"></div></div>
+        </div>
+        <div>
+          <div class="students-col-hd"><span class="students-col-dot" style="background:var(--online)"></span>Online</div>
+          <div class="rank-card"><div class="rank-card-hd">P&L</div><div id="a-online-pnl-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">Hands Played</div><div id="a-online-hands-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">BB/100</div><div id="a-online-bb-rank"></div></div>
+          <div class="rank-card"><div class="rank-card-hd">Rolling Makeup</div><div id="a-online-mu-rank"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL SESSIONS TAB -->
+    <div class="tab-pane" id="a-tab-sessions">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">All Sessions</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <div class="cdd-wrap" style="width:130px;"><button class="cdd-trigger sm" id="a-flt-type-cdd" onclick="toggleCdd('a-flt-type-cdd','a-flt-type-menu')"><span id="a-flt-type-label">Live + Online</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-type-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('a-flt-type','','Live + Online',this);renderAllSess()">Live + Online</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-type','live','Live only',this);renderAllSess()"><span class="cdd-dot" style="background:var(--live)"></span>Live only</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-type','online','Online only',this);renderAllSess()"><span class="cdd-dot" style="background:var(--online)"></span>Online only</div>
+            </div></div>
+            <input type="hidden" id="a-flt-type">
+            <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-stud-cdd" onclick="toggleCdd('a-flt-stud-cdd','a-flt-stud-menu')"><span id="a-flt-stud-label">All students</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-stud-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-stud','','All students',this);renderAllSess()">All students</div></div></div>
+            <input type="hidden" id="a-flt-stud">
+            <div id="a-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+            <button class="filter-btn" id="a-filter-btn" onclick="openFP('admin')">⊞ Filter</button>
+          </div>
+        </div>
+        <div id="a-sess-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div class="tab-pane" id="a-tab-analytics">
+      <div class="stats-grid" id="a-stable-stats"></div>
+      <div class="combined-row">
+        <div class="combined-half"><h4><span class="dot" style="background:var(--live)"></span>Live</h4><div class="stats-grid" style="margin-bottom:.75rem" id="a-live-stats"></div><div class="bar-chart" id="a-live-chart"></div></div>
+        <div class="combined-half"><h4><span class="dot" style="background:var(--online)"></span>Online</h4><div class="stats-grid" style="margin-bottom:.75rem" id="a-online-stats"></div><div class="bar-chart" id="a-online-chart"></div></div>
+      </div>
+      <div class="section-label" style="margin-top:.5rem">By Staker</div>
+      <div id="a-staker-cards"></div>
+    </div>
+
+    <!-- TRANSFERS TAB -->
+    <div class="tab-pane" id="a-tab-transfers">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">All Transfers</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <div class="cdd-wrap" style="width:130px;"><button class="cdd-trigger sm" id="a-flt-ttype-cdd" onclick="toggleCdd('a-flt-ttype-cdd','a-flt-ttype-menu')"><span id="a-flt-ttype-label">All types</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-ttype-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('a-flt-ttype','','All types',this);renderAdminTransfers()">All types</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-ttype','transfer','Transfers',this);renderAdminTransfers()">Transfers</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-ttype','split','Splits',this);renderAdminTransfers()">Splits</div>
+            </div></div>
+            <input type="hidden" id="a-flt-ttype">
+            <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-tstud-cdd" onclick="toggleCdd('a-flt-tstud-cdd','a-flt-tstud-menu')"><span id="a-flt-tstud-label">All students</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-tstud-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-tstud','','All students',this);renderAdminTransfers()">All students</div></div></div>
+            <input type="hidden" id="a-flt-tstud">
+            <div id="at-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+            <button class="filter-btn" id="at-filter-btn" onclick="openFP('atransfer')">⊞ Filter</button>
+          </div>
+        </div>
+        <div id="a-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ROSTER TAB -->
+    <div class="tab-pane" id="a-tab-roster">
+      <div class="stud-grid" id="a-stud-grid"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-pane" id="a-tab-settings">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Backers</div><button class="btn btn-p btn-sm" onclick="openStakerModal()">+ Add Backer</button></div>
+          <div id="a-stakers-list" style="padding:.5rem"></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Connection</div></div>
+          <div style="padding:1rem;font-size:11px;color:var(--muted);line-height:2;" id="a-conn-info"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SESSION MODAL ══ -->
+<div class="overlay" id="sess-overlay" onclick="oout(event,'sess-overlay')">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="sess-modal-title">Log Session</h3><button class="mclose" onclick="cov('sess-overlay')">×</button></div>
+    <div id="adm-stud-row" class="fr" style="display:none;margin-bottom:9px;">
+      <div class="fld"><label>Student</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="f-stud-sel-cdd" onclick="toggleCdd('f-stud-sel-cdd','f-stud-sel-menu')"><span id="f-stud-sel-label" style="color:var(--muted2);">Select student…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="f-stud-sel-menu" style="display:none;"></div></div>
+        <input type="hidden" id="f-stud-sel">
+      </div>
+      <div class="fld"><label>Play Type</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="f-play-type-adm-cdd" onclick="toggleCdd('f-play-type-adm-cdd','f-play-type-adm-menu')"><span id="f-play-type-adm-label">Live</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="f-play-type-adm-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('f-play-type-adm','live','Live',this);toggleDurField('live')"><span class="cdd-dot" style="background:var(--live)"></span>Live</div>
+          <div class="cdd-opt" onclick="setCdd('f-play-type-adm','online','Online',this);toggleDurField('online')"><span class="cdd-dot" style="background:var(--online)"></span>Online</div>
+        </div></div>
+        <input type="hidden" id="f-play-type-adm" value="live">
+      </div>
+    </div>
+    <div id="stud-type-row" style="display:none;margin-bottom:12px;">
+      <div class="section-label"><span class="dot" id="sess-type-dot"></span><span id="sess-type-label"></span> session</div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Date</label><input type="date" id="f-date"></div>
+      <div class="fld"><label>Venue / Site</label>
+        <div class="cdd-wrap">
+          <button class="cdd-trigger" id="f-venue-cdd" onclick="toggleCdd('f-venue-cdd','f-venue-menu')">
+            <span id="f-venue-label" style="color:var(--muted2);">Select venue…</span><span class="cdd-arrow">▾</span>
+          </button>
+          <div class="cdd-menu" id="f-venue-menu" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="f-venue">
+      </div>
+    </div>
+    <div class="fr" style="margin-bottom:9px;">
+      <div class="fld"><label>Game Format(s)</label>
+        <div class="fmt-chips">
+          <div class="fmt-chip" data-fmt="NLH" onclick="toggleFmt(this)">NLH</div>
+          <div class="fmt-chip" data-fmt="PLO4" onclick="toggleFmt(this)">PLO4</div>
+          <div class="fmt-chip" data-fmt="PLO5" onclick="toggleFmt(this)">PLO5</div>
+          <div class="fmt-chip" data-fmt="Mixed" onclick="toggleFmt(this)">Mixed</div>
+          <div class="fmt-chip" data-fmt="Other" onclick="toggleFmt(this)">Other</div>
+        </div>
+      </div>
+      <div class="fld"><label>Stake Level</label>
+        <div class="cdd-wrap">
+          <button class="cdd-trigger" id="f-stake-cdd" onclick="toggleCdd('f-stake-cdd','f-stake-menu')">
+            <span id="f-stake-label" style="color:var(--muted2);">Select stake…</span><span class="cdd-arrow">▾</span>
+          </button>
+          <div class="cdd-menu" id="f-stake-menu" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="f-stake">
+      </div>
+      <div class="fld" id="f-rb-dest-wrap" style="display:none;"><label>Rakeback Destination</label>
+        <div class="cdd-wrap">
+          <button class="cdd-trigger" id="f-rb-dest-cdd" onclick="toggleCdd('f-rb-dest-cdd','f-rb-dest-menu')">
+            <span id="f-rb-dest-label" style="color:var(--muted2);">Select destination…</span><span class="cdd-arrow">▾</span>
+          </button>
+          <div class="cdd-menu" id="f-rb-dest-menu" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="f-rb-dest">
+      </div>
+    </div>
+    <div class="fr three">
+      <div class="fld"><label>Buy In ($)</label><input type="number" id="f-buyin" placeholder="0" oninput="calcRes()"></div>
+      <div class="fld"><label>Cash Out ($)</label><input type="number" id="f-cashout" placeholder="0" oninput="calcRes()"></div>
+      <div class="fld"><label>Result</label><input type="text" id="f-result" readonly placeholder="—"></div>
+    </div>
+    <div class="fr">
+      <div class="fld" id="f-dur-wrap"><label>Duration (hrs)</label><input type="text" id="f-dur" placeholder="6, 4.5, 4h30m"></div>
+      <div class="fld" id="f-hands-wrap" style="display:none;"><label>Hands Played</label><input type="number" id="f-hands" placeholder="450" min="0"></div>
+    </div>
+    <div class="fr one"><div class="fld"><label>Notes</label><textarea id="f-notes" placeholder="Anything worth noting…"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('sess-overlay')">Cancel</button>
+      <button class="btn btn-p" id="sess-save-btn" onclick="saveSess()">Save Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STUDENT MODAL ══ -->
+<div class="overlay" id="stud-overlay" onclick="oout(event,'stud-overlay')">
+  <div class="modal">
+    <div class="modal-hd"><h3 id="stud-modal-title">Add Student</h3><button class="mclose" onclick="cov('stud-overlay')">×</button></div>
+    <div class="fr">
+      <div class="fld"><label>5-Digit ID</label><input type="text" id="st-id" maxlength="5" placeholder="e.g. 10423"></div>
+      <div class="fld"><label>Full Name</label><input type="text" id="st-name" placeholder="First Last"></div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Email (optional)</label><input type="email" id="st-email" placeholder="player@email.com"></div>
+      <div class="fld"><label>Status</label>
+        <div class="cdd-wrap">
+          <button class="cdd-trigger" id="st-active-cdd" onclick="toggleCdd('st-active-cdd','st-active-menu')">
+            <span id="st-active-label">Active</span><span class="cdd-arrow">▾</span>
+          </button>
+          <div class="cdd-menu" id="st-active-menu" style="display:none;">
+            <div class="cdd-opt selected" onclick="setCdd('st-active','true','Active',this)">Active</div>
+            <div class="cdd-opt" onclick="setCdd('st-active','false','Inactive',this)">Inactive</div>
+          </div>
+        </div>
+        <input type="hidden" id="st-active" value="true">
+      </div>
+    </div>
+    <div class="fr one"><div class="fld"><label>Play Type(s)</label>
+      <div class="cdd-wrap">
+        <button class="cdd-trigger" id="st-play-types-cdd" onclick="toggleCdd('st-play-types-cdd','st-play-types-menu')">
+          <span id="st-play-types-label">Live only</span><span class="cdd-arrow">▾</span>
+        </button>
+        <div class="cdd-menu" id="st-play-types-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('st-play-types','live','Live only',this)"><span class="cdd-dot" style="background:var(--live)"></span>Live only</div>
+          <div class="cdd-opt" onclick="setCdd('st-play-types','online','Online only',this)"><span class="cdd-dot" style="background:var(--online)"></span>Online only</div>
+          <div class="cdd-opt" onclick="setCdd('st-play-types','both','Both',this)"><span class="cdd-dot" style="background:var(--accent)"></span>Both</div>
+        </div>
+      </div>
+      <input type="hidden" id="st-play-types" value="live">
+    </div></div>
+    <div class="fr one"><div class="fld"><label>Notes</label><textarea id="st-notes" placeholder="Additional notes…"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('stud-overlay')">Cancel</button>
+      <button class="btn btn-p" id="stud-save-btn" onclick="saveStud()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONTRACT MODAL ══ -->
+<div class="overlay" id="contract-overlay" onclick="oout(event,'contract-overlay')">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-hd"><h3 id="contract-modal-title">Add Contract</h3><button class="mclose" onclick="cov('contract-overlay')">×</button></div>
+    <div class="fr">
+      <div class="fld"><label>Student</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="c-student-cdd" onclick="toggleCdd('c-student-cdd','c-student-menu')"><span id="c-student-label" style="color:var(--muted2);">Select student…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="c-student-menu" style="display:none;"></div></div>
+        <input type="hidden" id="c-student">
+      </div>
+      <div class="fld"><label>Staker</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="c-staker-cdd" onclick="toggleCdd('c-staker-cdd','c-staker-menu')"><span id="c-staker-label" style="color:var(--muted2);">Select staker…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="c-staker-menu" style="display:none;"></div></div>
+        <input type="hidden" id="c-staker">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Play Type</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="c-type-cdd" onclick="toggleCdd('c-type-cdd','c-type-menu')"><span id="c-type-label">Live</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="c-type-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('c-type','live','Live',this)"><span class="cdd-dot" style="background:var(--live)"></span>Live</div>
+          <div class="cdd-opt" onclick="setCdd('c-type','online','Online',this)"><span class="cdd-dot" style="background:var(--online)"></span>Online</div>
+        </div></div>
+        <input type="hidden" id="c-type" value="live">
+      </div>
+      <div class="fld"><label>Status</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="c-active-cdd" onclick="toggleCdd('c-active-cdd','c-active-menu')"><span id="c-active-label">Active</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="c-active-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('c-active','true','Active',this)">Active</div>
+          <div class="cdd-opt" onclick="setCdd('c-active','false','Inactive',this)">Inactive</div>
+        </div></div>
+        <input type="hidden" id="c-active" value="true">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Start Date</label><input type="date" id="c-start"></div>
+      <div class="fld"><label>End Date (leave blank = open)</label><input type="date" id="c-end"></div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Starting Makeup Balance ($)</label><input type="number" id="c-start-makeup" placeholder="0" min="0" value="0"></div>
+      <div class="fld"></div>
+    </div>
+    <hr class="dvdr">
+    <div class="section-label">Profit Split Tiers (Student %)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 34px;gap:6px;margin-bottom:4px;">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Min Profit ($)</div>
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Student %</div>
+      <div></div>
+    </div>
+    <div id="c-tier-rows"></div>
+    <button class="tier-add" onclick="addContractTier()">+ Add tier</button>
+    <div class="fr one" style="margin-top:10px;"><div class="fld"><label>Notes</label><textarea id="c-notes" placeholder="Terms, conditions…"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('contract-overlay')">Cancel</button>
+      <button class="btn btn-p" id="contract-save-btn" onclick="saveContract()">Save Contract</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STAKER MODAL ══ -->
+<div class="overlay" id="staker-overlay" onclick="oout(event,'staker-overlay')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-hd"><h3 id="staker-modal-title">Add Backer</h3><button class="mclose" onclick="cov('staker-overlay')">×</button></div>
+    <div class="fr one"><div class="fld"><label>Name</label><input type="text" id="sk-name" placeholder="Backer name"></div></div>
+    <div class="fr one"><div class="fld"><label>Notes</label><textarea id="sk-notes" placeholder="Optional notes…"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('staker-overlay')">Cancel</button>
+      <button class="btn btn-p" id="staker-save-btn" onclick="saveStaker()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRANSFER MODAL ══ -->
+<div class="overlay" id="transfer-overlay" onclick="oout(event,'transfer-overlay')">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-hd"><h3 id="transfer-modal-title">New Transfer</h3><button class="mclose" onclick="cov('transfer-overlay')">×</button></div>
+    <div class="transfer-type-tab">
+      <button class="ttype-btn active" id="ttype-transfer" onclick="setTransferType('transfer')">Transfer</button>
+      <button class="ttype-btn" id="ttype-split" onclick="setTransferType('split')">Split</button>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Date</label><input type="date" id="t-date"></div>
+      <div class="fld" id="t-stud-wrap"><label>Student</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="t-student-cdd" onclick="toggleCdd('t-student-cdd','t-student-menu')"><span id="t-student-label" style="color:var(--muted2);">Select student…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="t-student-menu" style="display:none;"></div></div>
+        <input type="hidden" id="t-student">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Sender</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="t-sender-cdd" onclick="toggleCdd('t-sender-cdd','t-sender-menu')"><span id="t-sender-label" style="color:var(--muted2);">Select…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="t-sender-menu" style="display:none;"></div></div>
+        <input type="hidden" id="t-sender">
+      </div>
+      <div class="fld"><label>Receiver</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="t-receiver-cdd" onclick="toggleCdd('t-receiver-cdd','t-receiver-menu')"><span id="t-receiver-label" style="color:var(--muted2);">Select…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="t-receiver-menu" style="display:none;"></div></div>
+        <input type="hidden" id="t-receiver">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Amount ($)</label><input type="number" id="t-amount" placeholder="0" min="0"></div>
+      <div class="fld" id="t-dest-wrap"><label>Destination / Notes</label><input type="text" id="t-dest" placeholder="Bank, crypto, etc."></div>
+    </div>
+
+    <!-- Split-specific fields -->
+    <div id="t-split-fields" style="display:none;">
+      <hr class="dvdr">
+      <div class="split-autofill">
+        <div class="split-autofill-lbl">Split Details — auto-populated from contract</div>
+        <div class="fr three">
+          <div class="fld"><label>Month</label><input type="month" id="t-split-month" onchange="autoFillSplit()"></div>
+          <div class="fld"><label>Student Cut ($)</label><input type="number" id="t-stud-cut" placeholder="0" oninput="onSplitCutChange()"></div>
+          <div class="fld"><label>Staker Cut ($)</label><input type="number" id="t-stak-cut" placeholder="0" oninput="onSplitCutChange()"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:4px;" id="t-split-info"></div>
+      </div>
+    </div>
+
+    <div class="fr one"><div class="fld"><label>Notes</label><textarea id="t-notes" placeholder="Optional…" style="min-height:50px;"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('transfer-overlay')">Cancel</button>
+      <button class="btn btn-p" id="transfer-save-btn" onclick="saveTransfer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STUDENT INFO MODAL ══ -->
+<div class="overlay" id="info-overlay" onclick="oout(event,'info-overlay')">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-hd"><h3 id="info-modal-name"></h3><button class="mclose" onclick="cov('info-overlay')">×</button></div>
+    <div id="info-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ STAKER INFO MODAL ══ -->
+<div class="overlay" id="staker-info-overlay" onclick="oout(event,'staker-info-overlay')">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-hd"><h3 id="staker-info-name"></h3><button class="mclose" onclick="cov('staker-info-overlay')">×</button></div>
+    <div id="staker-info-body"></div>
+  </div>
+</div>
+
+<!-- ══ FILTER PANEL ══ -->
+<div class="fp-overlay" id="fp-overlay" onclick="if(event.target===this)closeFP()">
+  <div class="fp-box">
+    <div class="fp-head"><h3>Add Filter</h3><button class="mclose" onclick="closeFP()">×</button></div>
+    <div class="fp-body">
+      <label class="fp-label">Filter by</label>
+      <div class="cdd-wrap" style="margin-bottom:1rem;">
+        <button class="cdd-trigger" id="fp-type-cdd" onclick="toggleCdd('fp-type-cdd','fp-type-menu')"><span id="fp-type-label" style="color:var(--muted2);">— select —</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="fp-type-menu" style="display:none;">
+          <div class="cdd-opt" onclick="setCdd('fp-type','','— select —',this);renderFPSub()">— select —</div>
+          <div class="cdd-opt" onclick="setCdd('fp-type','date','Date',this);renderFPSub()">Date</div>
+          <div class="cdd-opt" onclick="setCdd('fp-type','venue','Venue',this);renderFPSub()">Venue</div>
+          <div class="cdd-opt" onclick="setCdd('fp-type','format','Format',this);renderFPSub()">Format</div>
+          <div class="cdd-opt" onclick="setCdd('fp-type','stake','Stake',this);renderFPSub()">Stake</div>
+        </div>
+      </div>
+      <input type="hidden" id="fp-type">
+      <div id="fp-sub"></div>
+    </div>
+    <div class="fp-foot">
+      <button class="btn btn-g" onclick="closeFP()">Cancel</button>
+      <button class="btn btn-p" onclick="applyFP()">Add Filter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Venue Modal -->
+<div class="overlay" id="add-venue-overlay" onclick="oout(event,'add-venue-overlay')">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-hd"><h3>Add Venue / Site</h3><button class="mclose" onclick="cov('add-venue-overlay')">×</button></div>
+    <div class="fr one">
+      <div class="fld"><label>Name</label><input id="av-name" placeholder="e.g. Venetian, PokerStars" onkeydown="if(event.key==='Enter')submitAddVenue()"></div>
+    </div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('add-venue-overlay')">Cancel</button>
+      <button class="btn btn-p" onclick="submitAddVenue()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Stake Modal -->
+<div class="overlay" id="add-stake-overlay" onclick="oout(event,'add-stake-overlay')">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-hd"><h3>Add Stake</h3><button class="mclose" onclick="cov('add-stake-overlay')">×</button></div>
+    <div class="fr">
+      <div class="fld"><label>Small Blind</label><input id="as-sb" type="number" placeholder="e.g. 2"></div>
+      <div class="fld"><label>Big Blind</label><input id="as-bb" type="number" placeholder="e.g. 5"></div>
+    </div>
+    <div style="margin:8px 0;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--muted2);">
+        <input type="checkbox" id="as-straddle-check" onchange="$('as-straddle-row').style.display=this.checked?'block':'none'" style="accent-color:var(--accent);">
+        Straddle
+      </label>
+    </div>
+    <div id="as-straddle-row" style="display:none;">
+      <div class="fr one">
+        <div class="fld"><label>Straddle Size</label><input id="as-straddle-val" type="number" placeholder="e.g. 10"></div>
+      </div>
+    </div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('add-stake-overlay')">Cancel</button>
+      <button class="btn btn-p" onclick="submitAddStake()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Edit Modal -->
+<div class="overlay" id="batch-edit-overlay" onclick="oout(event,'batch-edit-overlay')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-hd"><h3 id="batch-edit-title">Batch Edit</h3><button class="mclose" onclick="cov('batch-edit-overlay')">×</button></div>
+    <div class="batch-actions" id="batch-action-list"></div>
+    <div id="batch-input-area"></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('batch-edit-overlay')">Cancel</button>
+      <button class="btn btn-p" id="batch-apply-btn" onclick="applyBatchEdit()" disabled>Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const SB_URL='https://kpmcrkcpyywouxzniren.supabase.co';
+const SB_KEY='sb_publishable_vzAVOfHFyVn1-RbcfP39GA_aA22sOkg';
+const ADMIN_PIN='65591';
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let SB=null;
+let me=null,isAdmin=false;
+let allStuds=[],allSess=[],allContracts=[],allStakers=[],allTransfers=[],allParties=[],allBankroll=[];
+let mySess=[],myContracts=[],myTransfers=[],myVenues=[],myStakes=[];
+let editSessId=null,editStudId=null,editContractId=null,editStakerId=null,editTransferId=null;
+let selFmts=new Set();
+let batchSelSess=new Set(),batchSelTrans=new Set(),batchEditType='',batchAction='',batchVisibleSessIds=[],batchVisibleTransIds=[];
+let curMode='live',loginMode='player';
+let idEntry='',pinEntry='';
+let activeFiltersS=[],activeFiltersA=[],activeFiltersAT=[],fpCtx='student';
+let studSessSort={col:'date',dir:'desc'},allSessSort={col:'date',dir:'desc'};
+let curTransferType='transfer';
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  SB=supabase.createClient(SB_URL,SB_KEY);
+  showLogin();
+  document.addEventListener('keydown',e=>{
+    if($('login-screen').style.display==='none')return;
+    if(loginMode==='admin'){if(e.key>='0'&&e.key<='9')nkPress(e.key);else if(e.key==='Backspace')nkDel();}
+    else{if(e.key>='0'&&e.key<='9')nkPress(e.key);else if(e.key==='Backspace')nkDel();}
+  });
+});
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function showLogin(){
+  ['setup-screen','login-screen','admin-login-screen','student-app','admin-app'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+  idEntry='';pinEntry='';loginMode='player';updateId();updatePin();
+  $('login-err').textContent='';
+  $('login-id-display').style.display='flex';$('login-pin-display').style.display='none';
+  $('login-tagline').textContent='// enter your 5-digit player ID';
+  $('mode-player-btn').style.cssText='flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);';
+  $('mode-admin-btn').style.cssText='flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;';
+  $('login-screen').style.display='flex';
+}
+function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];mySess=[];myContracts=[];myTransfers=[];myVenues=[];myStakes=[];showLogin();}
+function setLoginMode(mode){
+  loginMode=mode;idEntry='';pinEntry='';$('login-err').textContent='';
+  const player=mode==='player';
+  $('login-id-display').style.display=player?'flex':'none';
+  $('login-pin-display').style.display=player?'none':'flex';
+  $('login-tagline').textContent=player?'// enter your 5-digit player ID':'// enter admin PIN';
+  $('mode-player-btn').style.cssText=player?'flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);':'flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;';
+  $('mode-admin-btn').style.cssText=player?'flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;':'flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.4);color:var(--orange);';
+  if(player)updateId();else updatePin();
+}
+
+// ── NUMPAD ────────────────────────────────────────────────────────────────────
+function updateId(){for(let i=0;i<5;i++){const el=$('d'+i);if(!el)continue;const ch=idEntry[i];el.textContent=ch||'_';el.className='id-digit'+(ch?' filled':'')+(i===idEntry.length?' active':'');}}
+function updatePin(){for(let i=0;i<5;i++){const el=$('p'+i);if(!el)continue;const ch=pinEntry[i];el.textContent=ch?'●':'_';el.className='id-digit'+(ch?' filled':'')+(i===pinEntry.length?' active':'');}}
+function nkPress(d){
+  if(loginMode==='admin'){if(pinEntry.length>=5)return;pinEntry+=d;updatePin();if(pinEntry.length===5)doAdminLogin();}
+  else{if(idEntry.length>=5)return;idEntry+=d;updateId();if(idEntry.length===5)doPlayerLogin();}
+}
+function nkDel(){if(loginMode==='admin'){pinEntry=pinEntry.slice(0,-1);updatePin();}else{idEntry=idEntry.slice(0,-1);updateId();}$('login-err').textContent='';}
+async function doPlayerLogin(){
+  const{data,error}=await SB.from('students').select('*').eq('id',idEntry).eq('active',true).single();
+  if(error||!data){showErr('ID not found');idEntry='';updateId();return;}
+  me=data;me.play_types=data.play_types||'live';
+  isAdmin=false;
+  ['setup-screen','login-screen','admin-login-screen','student-app','admin-app'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+  $('stud-badge').textContent=`#${me.id} — ${me.name}`;
+  $('student-app').style.display='block';
+  buildModeTabs();loadStudData();
+}
+function doAdminLogin(){
+  if(pinEntry===ADMIN_PIN){
+    isAdmin=true;me=null;
+    ['setup-screen','login-screen','admin-login-screen','student-app','admin-app'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+    $('admin-app').style.display='block';
+    $('a-conn-info').innerHTML=`URL: <span style="color:var(--text)">${SB_URL}</span>`;
+    loadAdminData();
+  } else {
+    const err=$('login-err');err.textContent='Incorrect PIN';pinEntry='';updatePin();setTimeout(()=>err.textContent='',2500);
+  }
+}
+function showErr(msg){const el=$('login-err');el.textContent=msg;setTimeout(()=>el.textContent='',2500);}
+
+// ── MODE TABS ─────────────────────────────────────────────────────────────────
+function buildModeTabs(){
+  const pt=me.play_types,c=$('mode-tabs');
+  if(pt==='live'){c.innerHTML=`<button class="mode-tab live active" onclick="setMode('live',this)">Live</button>`;curMode='live';}
+  else if(pt==='online'){c.innerHTML=`<button class="mode-tab online active" onclick="setMode('online',this)">Online</button>`;curMode='online';}
+  else{c.innerHTML=`<button class="mode-tab live active" onclick="setMode('live',this)">Live</button><button class="mode-tab online" onclick="setMode('online',this)">Online</button><button class="mode-tab both" onclick="setMode('both',this)">Combined</button>`;curMode='live';}
+  updateModeUI();
+}
+function setMode(mode,btn){curMode=mode;document.querySelectorAll('#mode-tabs .mode-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');updateModeUI();const activeSub=document.querySelector('#stud-sub-tabs .tab-btn.active');renderStudForMode(activeSub?activeSub.getAttribute('onclick').match(/'(\w+)'/)[1]:'sessions');}
+function updateModeUI(){
+  $('stud-sub-tabs').className='tabs'+(curMode==='live'?' in-live':curMode==='online'?' in-online':'');
+  $('log-sess-btn').className='btn btn-p btn-sm'+(curMode==='live'?' live':curMode==='online'?' online':'');
+  const contractBtn=document.querySelector('#stud-sub-tabs .tab-btn:nth-child(3)');
+  if(contractBtn)contractBtn.style.display=curMode==='both'?'none':'';
+}
+function renderStudForMode(n){
+  if(n==='sessions'){renderStudSessions();}
+  else if(n==='analytics'){renderStudStats();renderStudAnalytics();}
+  else if(n==='contract')renderStudContract();
+  else if(n==='transfers')renderStudTransfers();
+  else if(n==='options')renderStudOptions();
+}
+function modeSess(){return curMode==='both'?mySess:mySess.filter(s=>s.play_type===curMode);}
+function sSubTab(name,btn){document.querySelectorAll('#student-app .tab-pane').forEach(p=>p.classList.remove('active'));$('s-tab-'+name).classList.add('active');document.querySelectorAll('#stud-sub-tabs .tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderStudForMode(name);}
+
+// ── STUDENT DATA ──────────────────────────────────────────────────────────────
+async function loadStudData(){
+  const[{data:sess},{data:contracts},{data:transfers},{data:stakers}]=await Promise.all([
+    SB.from('sessions').select('*').eq('student_id',me.id).order('date',{ascending:false}),
+    SB.from('contracts').select('*').eq('student_id',me.id).order('start_date',{ascending:false}),
+    SB.from('transfers').select('*').eq('student_id',me.id).order('date',{ascending:false}),
+    SB.from('stakers').select('*').order('name')
+  ]);
+  mySess=sess||[];myContracts=contracts||[];myTransfers=transfers||[];allStakers=stakers||[];
+  // Load preferences from localStorage (keyed per student)
+  const prefsKey=`rp_prefs_${me.id}`;
+  const prefs=JSON.parse(localStorage.getItem(prefsKey)||'{}');
+  myVenues=prefs.venues||[];
+  myStakes=prefs.stakes||[];
+  populateSessionDataLists();
+  renderStudSessions();
+}
+
+function saveStudPrefs(){
+  const prefsKey=`rp_prefs_${me.id}`;
+  localStorage.setItem(prefsKey,JSON.stringify({venues:myVenues,stakes:myStakes}));
+  populateSessionDataLists();
+}
+
+function populateSessionDataLists(){
+  const hasActiveLive=myContracts.some(c=>c.play_type==='live'&&c.active!==false);
+  const isLive=me.play_types!=='online';
+  // Venue dropdown
+  const sessionVenues=[...new Set(mySess.map(s=>s.venue).filter(Boolean))];
+  const allVenues=[...new Set([...(isLive&&hasActiveLive?['Live Roll']:[]),...myVenues,...sessionVenues])];
+  const vMenu=$('f-venue-menu');
+  if(vMenu){
+    vMenu.innerHTML=allVenues.map(v=>`<div class="cdd-opt" onclick="setCdd('f-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('');
+  }
+  // Stake dropdown — static list for online, session-derived for live
+  const stakeMenu=$('f-stake-menu');
+  if(stakeMenu){
+    const opts=isLive
+      ?[...new Set([...myStakes,...mySess.map(s=>s.stake_level).filter(s=>s&&s!=='Rakeback')])].sort((a,b)=>stakeVal(a)-stakeVal(b))
+      :ONLINE_STAKES;
+    const rbOpt=`<div class="cdd-opt" onclick="setCdd('f-stake','Rakeback','Rakeback',this);toggleRakeback(true)"><span class="bdg" style="background:var(--green);margin-right:4px;">Rakeback</span></div>`;
+    const stakeOpts=opts.map(s=>`<div class="cdd-opt" onclick="setCdd('f-stake','${s}','${s}',this);toggleRakeback(false)"><span class="bdg ${skCls(s)}" style="margin-right:4px;">${s}</span></div>`).join('');
+    stakeMenu.innerHTML=rbOpt+stakeOpts;
+  }
+  // Rakeback destination dropdown — venues + stakers
+  const rbMenu=$('f-rb-dest-menu');
+  if(rbMenu){
+    const venues=[...new Set([...myVenues,...sessionVenues])].sort();
+    const stakers=(allStakers||[]).map(s=>s.name);
+    const destOpts=[...venues,...stakers.filter(s=>!venues.includes(s))];
+    rbMenu.innerHTML=destOpts.map(d=>`<div class="cdd-opt" onclick="setCdd('f-rb-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+  }
+}
+
+function getActiveContract(playType){
+  return myContracts.find(c=>(c.play_type===playType||c.play_type==='both')&&c.active!==false);
+}
+function getContractForSession(sess){
+  return myContracts.find(c=>(c.play_type===sess.play_type||c.play_type==='both')&&c.active!==false&&sess.date>=c.start_date&&(!c.end_date||sess.date<=c.end_date));
+}
+
+// ── CONTRACT MATH ─────────────────────────────────────────────────────────────
+// Returns {studentTake, stakerTake, makeup} for a set of sessions under a contract
+function calcContractStats(sessions, contract, playType){
+  if(!contract)return{studentTake:0,stakerTake:0,makeup:contract?.starting_makeup||0,netProfit:0};
+  const splits=parseSplits(contract.splits, playType);
+  const sorted=[...sessions].filter(s=>s.date>=contract.start_date&&(!contract.end_date||s.date<=contract.end_date)).sort((a,b)=>a.date<b.date?-1:1);
+  let makeup=contract.starting_makeup||0;
+  let studentTake=0,stakerTake=0,totalProfit=0;
+  for(const s of sorted){
+    const p=+s.profit||0;totalProfit+=p;
+    if(p<=0){makeup+=Math.abs(p);continue;}
+    // clear makeup first
+    let remaining=p;
+    if(makeup>0){const cleared=Math.min(makeup,remaining);makeup-=cleared;remaining-=cleared;}
+    if(remaining<=0)continue;
+    // apply tiers on remaining profit
+    const tier=getTierForAmount(splits,totalProfit-makeup);
+    const pct=tier?tier.pct:60;
+    studentTake+=remaining*(pct/100);
+    stakerTake+=remaining*((100-pct)/100);
+  }
+  return{studentTake,stakerTake,makeup,netProfit:totalProfit};
+}
+
+function getTierForAmount(splits,net){
+  if(!splits||!splits.length)return null;
+  return splits.find(t=>net>=t.min&&(t.max==null||net<t.max))||splits[splits.length-1];
+}
+
+function getStudentContractStats(studentId, playType){
+  const contract=isAdmin
+    ?allContracts.find(c=>c.student_id===studentId&&(c.play_type===playType||c.play_type==='both')&&c.active!==false)
+    :myContracts.find(c=>(c.play_type===playType||c.play_type==='both')&&c.active!==false);
+  const sessions=(isAdmin?allSess:mySess).filter(s=>s.student_id===studentId&&s.play_type===playType);
+  return calcContractStats(sessions,contract,playType);
+}
+
+// ── STUDENT RENDERING ─────────────────────────────────────────────────────────
+function renderStudStats(){
+  const ss=modeSess();const net=sum(ss,'profit');
+  const wr=ss.length?Math.round(ss.filter(x=>+x.profit>0).length/ss.length*100):0;
+  const bw=ss.length?Math.max(...ss.map(x=>+x.profit||0)):0;
+  let extra='';
+  if(curMode!=='online'){
+    const liveSS=curMode==='both'?ss.filter(s=>s.play_type==='live'):ss;
+    const hrs=liveSS.reduce((a,s)=>a+parseDur(s.duration),0);
+    const hr=hrs>0?net/hrs:0;
+    const cs=getStudentContractStats(me.id,'live');
+    extra+=`<div class="sc"><div class="sc-lbl">Hours Played</div><div class="sc-val neu">${hrs>0?hrs.toFixed(1)+'h':'—'}</div></div>`;
+    extra+=`<div class="sc"><div class="sc-lbl">$/Hour</div><div class="sc-val ${hr>0?'pos':hr<0?'neg':'neu'}">${hrs>0?fm(Math.round(hr)):'—'}</div></div>`;
+    extra+=`<div class="sc"><div class="sc-lbl">Live Makeup</div><div class="sc-val ${cs.makeup>0?'neg':'pos'}">${cs.makeup>0?'-'+fm(cs.makeup):'Clear ✓'}</div></div>`;
+  }
+  if(curMode!=='live'){
+    const onlineSS=curMode==='both'?ss.filter(s=>s.play_type==='online'):ss;
+    const hands=onlineSS.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
+    const bb100=calcBB100(onlineSS);
+    const cs=getStudentContractStats(me.id,'online');
+    extra+=`<div class="sc"><div class="sc-lbl">Hands Played</div><div class="sc-val neu">${hands>0?hands.toLocaleString():'—'}</div></div>`;
+    extra+=`<div class="sc"><div class="sc-lbl">BB/100</div><div class="sc-val ${bb100>0?'pos':bb100<0?'neg':'neu'}">${bb100!==null?bb100.toFixed(1):'—'}</div></div>`;
+    extra+=`<div class="sc"><div class="sc-lbl">Online Makeup</div><div class="sc-val ${cs.makeup>0?'neg':'pos'}">${cs.makeup>0?'-'+fm(cs.makeup):'Clear ✓'}</div></div>`;
+  }
+  if(curMode==='both'){
+    const lnet=sum(mySess.filter(s=>s.play_type==='live'),'profit');
+    const onet=sum(mySess.filter(s=>s.play_type==='online'),'profit');
+    extra+=`<div class="sc"><div class="sc-lbl">Live P&L</div><div class="sc-val ${lnet>0?'live-c':lnet<0?'neg':'neu'}">${fm(lnet)}</div></div>`;
+    extra+=`<div class="sc"><div class="sc-lbl">Online P&L</div><div class="sc-val ${onet>0?'online-c':onet<0?'neg':'neu'}">${fm(onet)}</div></div>`;
+  }
+  $('s-stats').innerHTML=`
+    <div class="sc"><div class="sc-lbl">${curMode==='both'?'Combined ':''}Net P&L</div><div class="sc-val ${net>0?'pos':net<0?'neg':'neu'}">${fm(net)}</div></div>
+    <div class="sc"><div class="sc-lbl">Sessions</div><div class="sc-val neu">${ss.length}</div></div>
+    <div class="sc"><div class="sc-lbl">Win Rate</div><div class="sc-val neu">${ss.length?wr+'%':'—'}</div></div>
+    ${extra}
+    <div class="sc"><div class="sc-lbl">Best Session</div><div class="sc-val pos">${bw>0?fm(bw):'—'}</div></div>`;
+}
+
+function sortStudSess(col){studSessSort.dir=studSessSort.col===col?(studSessSort.dir==='asc'?'desc':'asc'):(col==='date'||col==='profit'||col==='buy_in'||col==='cash_out'?'desc':'asc');studSessSort.col=col;renderStudSessions();}
+
+function renderStudSessions(){
+  let rows=applyFilters(modeSess(),activeFiltersS);
+  renderChips('s-filter-chips','s-filter-btn','student');
+  const el=$('s-sess-body'),showType=curMode==='both';
+  $('s-sess-title').textContent=curMode==='both'?'All Sessions':curMode==='live'?'Live Sessions':'Online Sessions';
+  if(!rows.length){el.innerHTML=emptyHtml('♠','No sessions yet.');return;}
+
+  // Combined mode: split into live and online sections
+  if(curMode==='both'){
+    const liveRows=applyFilters(mySess.filter(s=>s.play_type==='live'),activeFiltersS);
+    const onlineRows=applyFilters(mySess.filter(s=>s.play_type==='online'),activeFiltersS);
+    const lSorted=sortRows(liveRows,studSessSort);
+    const oSorted=sortRows(onlineRows,studSessSort);
+    batchVisibleSessIds=[...lSorted,...oSorted].map(s=>s.id);
+
+    const arrow=c=>studSessSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(studSessSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+    const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortStudSess('${c}')">${l}${arrow(c)}</th>`;
+
+    function sectionTable(sRows,playType){
+      if(!sRows.length)return`<div style="padding:1rem;color:var(--muted);font-size:13px;">No ${playType} sessions.</div>`;
+      const tBuy=sum(sRows,'buy_in'),tCash=sum(sRows,'cash_out'),tProfit=sum(sRows,'profit');
+      const tHrs=sRows.reduce((a,s)=>a+parseDur(s.duration),0);
+      const tHands=sRows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
+      const dur=playType==='online'?(tHands>0?tHands.toLocaleString()+' hands':'—'):(tHrs>0?tHrs.toFixed(1)+'h':'—');
+      const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+      return`<table>
+        <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)"></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+        <tbody>${sRows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
+        <tfoot><tr class="summary-row">
+          <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;">${sRows.length} sessions</td>
+          <td></td><td></td><td></td>
+          <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
+          <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
+          <td style="color:var(--muted2);font-family:var(--mono);">${dur}</td><td></td>
+        </tr></tfoot></table>`;
+    }
+
+    el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess-both"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
+      <div style="padding:.75rem 1rem .4rem;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border);">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--live);display:inline-block;"></span>
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--live);">Live — ${lSorted.length} sessions</span>
+      </div>
+      ${sectionTable(lSorted,'live')}
+      <div style="padding:.75rem 1rem .4rem;display:flex;align-items:center;gap:7px;border-top:2px solid var(--border2);border-bottom:1px solid var(--border);margin-top:4px;">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--online);display:inline-block;"></span>
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--online);">Online — ${oSorted.length} sessions</span>
+      </div>
+      ${sectionTable(oSorted,'online')}`;
+    return;
+  }
+
+  rows=sortRows(rows,studSessSort);
+  batchVisibleSessIds=rows.map(s=>s.id);
+  const arrow=c=>studSessSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(studSessSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortStudSess('${c}')">${l}${arrow(c)}</th>`;
+  const tBuy=sum(rows,'buy_in'),tCash=sum(rows,'cash_out'),tProfit=sum(rows,'profit');
+  const tHrs=rows.reduce((a,s)=>a+parseDur(s.duration),0),tHands=rows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
+  const dur=curMode==='online'?(tHands>0?tHands.toLocaleString()+' hands':'—'):(tHrs>0?tHrs.toFixed(1)+'h':'—');
+  const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+  el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
+    <table>
+    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+    <tbody>${rows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
+    <tfoot><tr class="summary-row">
+      <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;">${rows.length} sessions</td>
+      <td></td><td></td><td></td>
+      <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
+      <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
+      <td style="color:var(--muted2);font-family:var(--mono);">${dur}</td><td></td>
+    </tr></tfoot></table>`;
+}
+
+let studChartMode='venue';
+function setStudChart(mode,optEl){
+  studChartMode=mode;
+  const labels={venue:'Venue',format:'Format',stake:'Stake',dow:'Day of Week',month:'Month'};
+  setCdd('','','',null);// dummy call
+  // manually update label + selected state
+  const menu=$('s-chart-menu');
+  if(menu)menu.querySelectorAll('.cdd-opt').forEach(o=>o.classList.remove('selected'));
+  if(optEl)optEl.classList.add('selected');
+  const lbl=$('s-chart-cdd-label');if(lbl)lbl.textContent=labels[mode]||mode;
+  const wrap=$('s-chart-cdd')?.closest('.cdd-wrap');if(wrap)closeCdd(wrap);
+  $('s-chart-lbl').textContent='By '+labels[mode];
+  renderStudAnalytics();
+}
+function renderStudAnalytics(){
+  const ss=modeSess(),col=curMode==='live'?'var(--live)':curMode==='online'?'var(--online)':'var(--accent)';
+  const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let data;
+  if(studChartMode==='venue'){data=groupBy(ss,s=>s.venue||'Unknown');}
+  else if(studChartMode==='format'){data=groupBy(ss,s=>(s.game_type||'').split(',')[0].trim()||'Unknown');}
+  else if(studChartMode==='stake'){data=groupBy(ss,s=>s.stake_level||'Unknown');}
+  else if(studChartMode==='dow'){
+    data={};DAYS.forEach(d=>data[d]=0);
+    ss.forEach(s=>{if(s.date){const d=new Date(s.date+'T12:00:00');data[DAYS[d.getDay()]]+=+s.profit||0;}});
+  } else if(studChartMode==='month'){
+    data={};
+    ss.forEach(s=>{if(s.date){const dt=new Date(s.date+'T12:00:00');const k=dt.toLocaleDateString('en-US',{month:'short',year:'2-digit'});data[k]=(data[k]||0)+(+s.profit||0);}});
+  }
+  renderBar('s-chart-main',data,col);
+  drawPnL('s-pnl',ss,col);
+}
+
+function renderStudContract(){
+  const isLive=curMode==='live';
+  const contract=getActiveContract(isLive?'live':'online');
+  const ss=mySess.filter(s=>s.play_type===(isLive?'live':'online'));
+  const accentCol=isLive?'var(--live)':'var(--online)';
+  $('s-contract-title').textContent=(isLive?'Live':'Online')+' — Active Contract';
+  if(!contract){
+    $('s-contract-body').innerHTML=`<div style="color:var(--muted);font-size:13px;">No active contract. Contact your backer.</div>`;
+    $('s-allocation').innerHTML='';$('s-makeup').innerHTML='';return;
+  }
+  const pt=isLive?'live':'online';
+  const splits=parseSplits(contract.splits,pt);
+  const stats=calcContractStats(ss,contract,pt);
+  const staker=allStakers.find(k=>k.id===contract.staker_id);
+  const pills=splits.map(t=>{const range=t.max!=null?`${fm(t.min)}–${fm(t.max)}`:`>${fm(t.min)}`;return`<span class="split-pill cur-${isLive?'live':'online'}">${range}: ${t.pct}%</span>`;}).join('');
+  $('s-contract-body').innerHTML=`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:.75rem;display:flex;gap:1.5rem;">
+      <span>Staker: <strong style="color:var(--text)">${esc(staker?staker.name:'Unknown')}</strong></span>
+      <span>Type: <strong style="color:${accentCol}">${contract.play_type}</strong></span>
+      <span>From: <strong style="color:var(--text)">${contract.start_date}</strong></span>
+      ${contract.end_date?`<span>To: <strong style="color:var(--text)">${contract.end_date}</strong></span>`:'<span style="color:var(--muted2)">Open-ended</span>'}
+    </div>
+    <div class="split-bar">${pills||'<span style="color:var(--muted);font-size:11px;">No tiers</span>'}</div>`;
+  $('s-allocation').innerHTML=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.7rem;">Profit Allocation</div>
+    <div style="font-size:13px;line-height:2.3;">
+      <div>Net result: <strong style="color:${stats.netProfit>=0?accentCol:'var(--red)'}">${fm(stats.netProfit)}</strong></div>
+      <div>Your take: <strong style="color:${accentCol}">${fm(Math.round(stats.studentTake))}</strong></div>
+      <div>Staker's cut: <strong>${fm(Math.round(stats.stakerTake))}</strong></div>
+    </div>`;
+  $('s-makeup').innerHTML=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.7rem;">Makeup Tracker</div>
+    <div style="font-size:13px;line-height:2.3;">
+      <div>Starting makeup: <strong>${fm(contract.starting_makeup||0)}</strong></div>
+      <div>Rolling makeup: <strong style="color:${stats.makeup>0?'var(--red)':accentCol}">${stats.makeup>0?fm(stats.makeup):'Clear ✓'}</strong></div>
+      ${contract.notes?`<div style="margin-top:.5rem;font-size:11px;color:var(--muted2);">${esc(contract.notes)}</div>`:''}
+    </div>`;
+}
+
+function renderStudTransfers(){
+  const el=$('s-transfers-body');
+  if(!myTransfers.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
+  const rows=[...myTransfers].sort((a,b)=>b.date.localeCompare(a.date));
+  batchVisibleTransIds=rows.map(t=>t.id);
+  const myName=(me?me.name:'').toLowerCase();
+  const studentTerms=['student'];
+  const isMe=v=>v&&(v.toLowerCase()===myName||studentTerms.includes(v.toLowerCase()));
+  const isSite=v=>v&&!isMe(v)&&v.toLowerCase()!=='backer'&&!/^(makaya|ned|radar poker)$/i.test(v);
+  el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
+    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th><th>Date</th><th>Type</th><th>Sender</th><th>Receiver</th><th>Amount</th><th>Notes</th><th></th></tr></thead>
+    <tbody>${rows.map(t=>{
+      const split=t.type==='split';
+      const rcv=t.receiver||'',snd=t.sender||'';
+      let amtCls;
+      if(split) amtCls='amt-neu';
+      else if(isSite(snd)&&isSite(rcv)) amtCls='amt-neu';
+      else if(isMe(rcv)) amtCls='amt-in';
+      else if(isMe(snd)) amtCls='amt-out';
+      else amtCls='amt-neu';
+      const tsel=batchSelTrans.has(t.id);
+      return`<tr class="${tsel?'batch-sel':''}${split?(tsel?' split-row':' split-row'):''}">
+      <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
+      <td><span class="bdg ${split?'b-act':'b-oth'}">${t.type}</span></td>
+      <td>${esc(snd)}</td><td>${esc(rcv)}</td>
+      <td class="${amtCls}">${fm(t.amount)}</td>
+      <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
+      <td><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+    </tr>`;}).join('')}</tbody></table>`;
+}
+
+function renderStudOptions(){
+  const liveSess=mySess.filter(s=>s.play_type==='live');
+  const onlineSess=mySess.filter(s=>s.play_type==='online');
+
+  const liveSessionVenues=[...new Set(liveSess.map(s=>s.venue).filter(Boolean))];
+  const onlineSessionVenues=[...new Set(onlineSess.map(s=>s.venue).filter(Boolean))];
+  const liveSessionStakes=[...new Set(liveSess.flatMap(s=>(s.stake_level||'').split(',').map(x=>{
+    const t=x.trim();if(!t)return'';
+    return isOnlineStake(t)?nlToLiveStake(t):t;
+  }).filter(Boolean)))];
+  const onlineSessionStakes=[...new Set(onlineSess.flatMap(s=>(s.stake_level||'').split(',').map(x=>normalizeOnlineStake(x.trim()))).filter(Boolean))];
+
+  const liveV=[...new Set([...myVenues.filter(v=>liveSessionVenues.includes(v)||!onlineSessionVenues.includes(v)),...liveSessionVenues])].sort();
+  const onlineV=[...new Set([...myVenues.filter(v=>onlineSessionVenues.includes(v)||!liveSessionVenues.includes(v)),...onlineSessionVenues])].sort();
+  const liveS=[...new Set([...liveSessionStakes])].sort((a,b)=>stakeVal(b)-stakeVal(a));
+  const onlineS=[...new Set([...onlineSessionStakes])].sort((a,b)=>stakeVal(b)-stakeVal(a));
+
+  const renderList=(items,manualList,type)=>{
+    if(!items.length)return`<div style="padding:.5rem;color:var(--muted);font-size:13px;">None yet.</div>`;
+    return items.map(v=>{
+      const isManual=manualList.includes(v);
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;border-bottom:1px solid var(--border);">
+        <span style="color:var(--text);font-size:13px;">${type==='stake'?stakesBadges(v):esc(v)}</span>
+        ${isManual?`<button class="ib del" onclick="removeOptionItem('${type}','${v.replace(/'/g,"\\'")}')">✕</button>`:`<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">from sessions</span>`}
+      </div>`;
+    }).join('');
+  };
+
+  const lvEl=$('s-live-venues-list'),lsEl=$('s-live-stakes-list');
+  const ovEl=$('s-online-venues-list'),osEl=$('s-online-stakes-list');
+  if(lvEl)lvEl.innerHTML=renderList(liveV,myVenues,'venue');
+  if(lsEl)lsEl.innerHTML=renderList(liveS,myStakes,'stake');
+  if(ovEl)ovEl.innerHTML=renderList(onlineV,myVenues,'venue');
+  if(osEl)osEl.innerHTML=renderList(onlineS,myStakes,'stake');
+}
+
+function addOptionItem(type){
+  if(type==='venue') ov('add-venue-overlay');
+  else ov('add-stake-overlay');
+}
+
+function submitAddVenue(){
+  const val=$('av-name').value.trim();
+  if(!val)return;
+  if(!myVenues.includes(val))myVenues.push(val);
+  saveStudPrefs();renderStudOptions();populateSessionDataLists();
+  cov('add-venue-overlay');$('av-name').value='';
+}
+
+function submitAddStake(){
+  const sb=parseFloat($('as-sb').value);
+  const bb=parseFloat($('as-bb').value);
+  if(isNaN(sb)||isNaN(bb)||sb<=0||bb<=0)return;
+  let stake=`${sb}/${bb}`;
+  if($('as-straddle-check').checked){
+    const str=parseFloat($('as-straddle-val').value);
+    if(!isNaN(str)&&str>0) stake+=`/${str}`;
+  }
+  if(!myStakes.includes(stake))myStakes.push(stake);
+  saveStudPrefs();renderStudOptions();populateSessionDataLists();
+  cov('add-stake-overlay');$('as-sb').value='';$('as-bb').value='';$('as-straddle-val').value='';$('as-straddle-check').checked=false;$('as-straddle-row').style.display='none';
+}
+
+function removeOptionItem(type,val){
+  if(type==='venue')myVenues=myVenues.filter(v=>v!==val);
+  else myStakes=myStakes.filter(v=>v!==val);
+  saveStudPrefs();renderStudOptions();
+}
+
+// ── ADMIN DATA ────────────────────────────────────────────────────────────────
+async function loadAdminData(){
+  const[{data:st},{data:se},{data:co},{data:sk},{data:tr},{data:pa},{data:bk}]=await Promise.all([
+    SB.from('students').select('*').order('created_at',{ascending:false}),
+    SB.from('sessions').select('*').order('date',{ascending:false}),
+    SB.from('contracts').select('*').order('start_date',{ascending:false}),
+    SB.from('stakers').select('*').order('name'),
+    SB.from('transfers').select('*').order('date',{ascending:false}),
+    SB.from('transfer_parties').select('*').order('name'),
+    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false})
+  ]);
+  allStuds=st||[];allSess=se||[];allContracts=co||[];allStakers=sk||[];allTransfers=tr||[];allParties=pa||[];allBankroll=bk||[];
+
+  // Populate student filter dropdowns
+  const studOpts=[{value:'',label:'All students'},...allStuds.map(s=>({value:s.id,label:`#${s.id} — ${s.name}`}))]; 
+  const studItems=allStuds.map(s=>({value:s.id,label:`#${s.id} — ${s.name}`}));
+  const studFiltItems=[{value:'',label:'All students'},...studItems];
+  const afm=$('a-flt-stud-menu');if(afm)afm.innerHTML=studFiltItems.map(it=>`<div class="cdd-opt${it.value===''?' selected':''}" onclick="setCdd('a-flt-stud','${it.value}','${it.label.replace(/'/g,"\\'")}',this);renderAllSess()">${esc(it.label)}</div>`).join('');
+  const atm=$('a-flt-tstud-menu');if(atm)atm.innerHTML=studFiltItems.map(it=>`<div class="cdd-opt${it.value===''?' selected':''}" onclick="setCdd('a-flt-tstud','${it.value}','${it.label.replace(/'/g,"\\'")}',this);renderAdminTransfers()">${esc(it.label)}</div>`).join('');
+
+  // Contract modal: student + staker dropdowns
+  const csm=$('c-student-menu');if(csm)csm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('c-student','${it.value}','${it.label.replace(/'/g,"\\'")}',this)">${esc(it.label)}</div>`).join('');
+  const ckm=$('c-staker-menu');if(ckm)ckm.innerHTML=allStakers.map(k=>`<div class="cdd-opt" onclick="setCdd('c-staker','${k.id}','${k.name.replace(/'/g,"\\'")}',this)">${esc(k.name)}</div>`).join('');
+
+  // Session modal: student dropdown
+  const fsm=$('f-stud-sel-menu');if(fsm)fsm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('f-stud-sel','${it.value}','${it.label.replace(/'/g,"\\'")}',this);updateAdmPlayTypeOpts(this.dataset.v||'${it.value}')" data-v="${it.value}">${esc(it.label)}</div>`).join('');
+
+  // Transfer modal: student + party dropdowns
+  const tsm=$('t-student-menu');if(tsm)tsm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('t-student','${it.value}','${it.label.replace(/'/g,"\\'")}',this);onTransferStudentChange()">${esc(it.label)}</div>`).join('');
+  const partyOpts=allParties.map(p=>({value:p.name,label:p.name}));
+  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-sender','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
+  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
+
+  try{renderStudentsTab();}catch(e){console.error('renderStudentsTab',e);}
+  try{renderAllSess();}catch(e){console.error('renderAllSess',e);}
+  try{renderAnalyticsTab();}catch(e){console.error('renderAnalyticsTab',e);}
+  try{renderRoster();}catch(e){console.error('renderRoster',e);}
+  try{renderAdminTransfers();}catch(e){console.error('renderAdminTransfers',e);}
+  try{renderStakersList();}catch(e){console.error('renderStakersList',e);}
+}
+
+// ── STUDENTS TAB ──────────────────────────────────────────────────────────────
+function renderStudentsTab(){
+  // Build per-student stats for live and online
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+
+  const liveStuds=allStuds.filter(s=>s.play_types!=='online');
+  const onlineStuds=allStuds.filter(s=>s.play_types!=='live');
+
+  function buildRankData(studs,playType){
+    return studs.map(s=>{
+      const contract=allContracts.find(c=>c.student_id===s.id&&(c.play_type===playType||c.play_type==='both')&&c.active!==false);
+      const sessions=allSess.filter(x=>x.student_id===s.id&&x.play_type===playType);
+      const stats=calcContractStats(sessions,contract,playType);
+      const hrs=sessions.reduce((a,x)=>a+parseDur(x.duration),0);
+      const hands=sessions.reduce((a,x)=>a+(parseInt(x.hands_played)||0),0);
+      const bb100=calcBB100(sessions);
+      const eph=hrs>0?stats.netProfit/hrs:null;
+      return{id:s.id,name:s.name,pnl:stats.netProfit,hrs,hands,bb100,eph,makeup:stats.makeup,sessions:sessions.length};
+    });
+  }
+
+  const liveData=buildRankData(liveStuds,'live');
+  const onlineData=buildRankData(onlineStuds,'online');
+
+  function rankRows(data,key,asc,isMakeup){
+    const sorted=[...data].sort((a,b)=>asc?(a[key]||0)-(b[key]||0):(b[key]||0)-(a[key]||0));
+    const maxVal=Math.max(...sorted.map(x=>Math.abs(x[key]||0)),1);
+    if(!sorted.length)return`<div style="padding:1rem;color:var(--muted);font-size:13px;">No data</div>`;
+    return sorted.map((s,i)=>{
+      const val=s[key];
+      const pct=Math.abs(val||0)/maxVal*100;
+      const color=isMakeup?'rgba(255,68,68,0.45)':(val>=0?'var(--accent)':'var(--red)');
+      const valStr=key==='hrs'?(val>0?val.toFixed(1)+'h':'—'):key==='hands'?(val>0?val.toLocaleString():'—'):key==='bb100'?(val!==null?val.toFixed(2):'—'):key==='eph'?(val!==null?fm(Math.round(val)):'—'):(val>=0?'+':'')+fm(val);
+      return`<div class="rank-row${isMakeup?' makeup-row':''}">
+        <div class="rank-num">${i+1}</div>
+        <div style="flex:1"><div class="rank-name" onclick="openStudInfo('${s.id}')">${esc(s.name)}</div><div class="rank-bar"><div class="rank-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>
+        <div class="rank-val" style="color:${isMakeup&&val>0?'var(--red)':val<0?'var(--red)':'var(--text)'}">${valStr}</div>
+      </div>`;
+    }).join('');
+  }
+
+  $('a-live-pnl-rank').innerHTML=rankRows(liveData,'pnl',false,false);
+  $('a-live-hrs-rank').innerHTML=rankRows(liveData,'hrs',false,false);
+  $('a-live-eph-rank').innerHTML=rankRows(liveData,'eph',false,false);
+  $('a-live-mu-rank').innerHTML=rankRows([...liveData].filter(x=>x.makeup>0||x.sessions>0),'makeup',false,true);
+
+  $('a-online-pnl-rank').innerHTML=rankRows(onlineData,'pnl',false,false);
+  $('a-online-hands-rank').innerHTML=rankRows(onlineData,'hands',false,false);
+  $('a-online-bb-rank').innerHTML=rankRows(onlineData,'bb100',false,false);
+  $('a-online-mu-rank').innerHTML=rankRows([...onlineData].filter(x=>x.makeup>0||x.sessions>0),'makeup',false,true);
+}
+
+// ── ALL SESSIONS ──────────────────────────────────────────────────────────────
+function sortAllSess(col){allSessSort.dir=allSessSort.col===col?(allSessSort.dir==='asc'?'desc':'asc'):(col==='date'||col==='profit'||col==='buy_in'||col==='cash_out'?'desc':'asc');allSessSort.col=col;renderAllSess();}
+function renderAllSess(){
+  const fltType=$('a-flt-type').value,fltStud=$('a-flt-stud').value;
+  let rows=allSess;
+  if(fltType)rows=rows.filter(s=>s.play_type===fltType);
+  if(fltStud)rows=rows.filter(s=>s.student_id===fltStud);
+  rows=applyFilters(rows,activeFiltersA);
+  renderChips('a-filter-chips','a-filter-btn','admin');
+  const el=$('a-sess-body');
+  if(!rows.length){el.innerHTML=emptyHtml('♠','No sessions found.');return;}
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  rows=sortRows(rows,allSessSort,sm);
+  batchVisibleSessIds=rows.map(s=>s.id);
+  const arrow=c=>allSessSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(allSessSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortAllSess('${c}')">${l}${arrow(c)}</th>`;
+  const tBuy=sum(rows,'buy_in'),tCash=sum(rows,'cash_out'),tProfit=sum(rows,'profit');
+  const tHrs=rows.reduce((a,s)=>a+parseDur(s.duration),0),tHands=rows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
+  const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+  el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess-adm"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
+    <table>
+    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Student','student')}${th('Type','type')}${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+    <tbody>${rows.map(s=>sessRow(s,true,sm,true)).join('')}</tbody>
+    <tfoot><tr class="summary-row">
+      <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;" colspan="2">${rows.length} sessions</td>
+      <td></td><td></td><td></td><td></td>
+      <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
+      <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
+      <td style="color:var(--muted2);font-family:var(--mono);">${tHrs>0?tHrs.toFixed(1)+'h':(tHands>0?tHands.toLocaleString()+' hands':'—')}</td><td></td>
+    </tr></tfoot></table>`;
+}
+
+// ── ANALYTICS TAB ─────────────────────────────────────────────────────────────
+function renderAnalyticsTab(){
+  const liveSess=allSess.filter(s=>s.play_type==='live'),onlineSess=allSess.filter(s=>s.play_type==='online');
+  const totalNet=sum(allSess,'profit');
+  const totalMakeup=allStuds.reduce((acc,s)=>{
+    const lcs=getStudentContractStats(s.id,'live');
+    const ocs=getStudentContractStats(s.id,'online');
+    return acc+lcs.makeup+ocs.makeup;
+  },0);
+  const totalLiquidity=allBankroll.reduce((a,x)=>a+(+x.amount||0),0);
+
+  $('a-stable-stats').innerHTML=`
+    <div class="sc"><div class="sc-lbl">Total Net P&L</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
+    <div class="sc"><div class="sc-lbl">Total Sessions</div><div class="sc-val neu">${allSess.length}</div></div>
+    <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
+    <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val neu">${fm(totalLiquidity)}</div></div>
+    <div class="sc"><div class="sc-lbl">Active Students</div><div class="sc-val neu">${allStuds.filter(s=>s.active).length}</div></div>`;
+
+  const mkStats=(sess,color)=>{const net=sum(sess,'profit'),wr=sess.length?Math.round(sess.filter(x=>+x.profit>0).length/sess.length*100):0;return`<div class="sc" style="border-color:rgba(${color},.2)"><div class="sc-lbl">Net P&L</div><div class="sc-val ${net>0?'pos':net<0?'neg':'neu'}">${fm(net)}</div></div><div class="sc"><div class="sc-lbl">Sessions</div><div class="sc-val neu">${sess.length}</div></div><div class="sc"><div class="sc-lbl">Win Rate</div><div class="sc-val neu">${sess.length?wr+'%':'—'}</div></div>`;};
+  $('a-live-stats').innerHTML=mkStats(liveSess,'80,184,240');
+  $('a-online-stats').innerHTML=mkStats(onlineSess,'176,96,240');
+
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  const byL={},byO={};allStuds.forEach(s=>{byL[s.name]=0;byO[s.name]=0;});
+  allSess.forEach(x=>{const n=sm[x.student_id];if(!n)return;const p=+x.profit||0;if(x.play_type==='live')byL[n]=(byL[n]||0)+p;else byO[n]=(byO[n]||0)+p;});
+  renderBar('a-live-chart',byL,'var(--live)');renderBar('a-online-chart',byO,'var(--online)');
+
+  // Staker cards
+  const stakerEl=$('a-staker-cards');
+  if(!allStakers.length){stakerEl.innerHTML=`<div style="color:var(--muted);font-size:13px;">No stakers yet. Add them in Settings.</div>`;return;}
+  stakerEl.innerHTML=allStakers.map(sk=>{
+    const skContracts=allContracts.filter(c=>c.staker_id===sk.id&&c.active!==false);
+    const skStudentIds=[...new Set(skContracts.map(c=>c.student_id))];
+    const skSess=allSess.filter(s=>skStudentIds.includes(s.student_id));
+    const skNet=sum(skSess,'profit');
+    const skMakeup=skStudentIds.reduce((acc,sid)=>{
+      const lcs=getStudentContractStats(sid,'live');const ocs=getStudentContractStats(sid,'online');return acc+lcs.makeup+ocs.makeup;},0);
+    const skLiquidity=allBankroll.filter(b=>skStudentIds.includes(b.student_id)).reduce((a,x)=>a+(+x.amount||0),0);
+    return`<div class="staker-card" onclick="openStakerInfo('${sk.id}')">
+      <div class="staker-name">${esc(sk.name)}</div>
+      <div style="display:flex;gap:2rem;font-size:13px;flex-wrap:wrap;">
+        <div><div class="stud-pnl-lbl">Students</div><div class="stud-pnl-val ${skStudentIds.length>0?'pp':''}">${skStudentIds.length}</div></div>
+        <div><div class="stud-pnl-lbl">Net P&L</div><div class="stud-pnl-val ${skNet>0?'pp':skNet<0?'pn':''}">${fm(skNet)}</div></div>
+        <div><div class="stud-pnl-lbl">Makeup Owed</div><div class="stud-pnl-val ${skMakeup>0?'pn':''}">${skMakeup>0?fm(skMakeup):'Clear'}</div></div>
+        <div><div class="stud-pnl-lbl">Liquidity</div><div class="stud-pnl-val">${fm(skLiquidity)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── ROSTER ────────────────────────────────────────────────────────────────────
+function renderRoster(){
+  const el=$('a-stud-grid');
+  if(!allStuds.length){el.innerHTML=`<div class="empty" style="grid-column:1/-1;"><div class="empty-icon">♦</div><div class="empty-msg">No students yet.</div></div>`;return;}
+  const sessMap={};allSess.forEach(x=>{(sessMap[x.student_id]=sessMap[x.student_id]||[]).push(x);});
+  el.innerHTML=allStuds.map(s=>{
+    const ss=sessMap[s.id]||[],pt=s.play_types||'live';
+    const lnet=sum(ss.filter(x=>x.play_type==='live'),'profit');
+    const onet=sum(ss.filter(x=>x.play_type==='online'),'profit');
+    return`<div class="stud-card" onclick="openStudInfo('${s.id}')">
+      <div class="stud-top"><div>
+        <div class="stud-id">${s.id}</div>
+        <div class="stud-name">${esc(s.name)}</div>
+        <div class="stud-meta">${ss.length} sessions</div>
+        <div class="type-badges">${pt!=='online'?'<span class="bdg b-live">Live</span>':''}${pt!=='live'?'<span class="bdg b-online">Online</span>':''}</div>
+      </div><span class="bdg ${s.active?'b-act':'b-off'}">${s.active?'Active':'Inactive'}</span></div>
+      <div class="stud-pnl-row">
+        ${pt!=='online'?`<div class="stud-pnl-blk"><div class="stud-pnl-lbl">Live P&L</div><div class="stud-pnl-val ${lnet>0?'pp':lnet<0?'pn':''}">${fm(lnet)}</div></div>`:''}
+        ${pt!=='live'?`<div class="stud-pnl-blk"><div class="stud-pnl-lbl">Online P&L</div><div class="stud-pnl-val ${onet>0?'pp':onet<0?'pn':''}">${fm(onet)}</div></div>`:''}
+      </div>
+      <div class="stud-acts" onclick="event.stopPropagation()">
+        <button class="btn btn-g btn-sm" onclick="openAdmSessModal('${s.id}')">+ Session</button>
+        <button class="btn btn-g btn-sm" onclick="openContractModal('${s.id}')">+ Contract</button>
+        <button class="btn btn-g btn-sm" onclick="editStud('${s.id}')">Edit</button>
+        <button class="btn btn-d btn-sm" onclick="delStud('${s.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── ADMIN TRANSFERS ───────────────────────────────────────────────────────────
+function renderAdminTransfers(){
+  const fltType=$('a-flt-ttype')?$('a-flt-ttype').value:'';
+  const fltStud=$('a-flt-tstud')?$('a-flt-tstud').value:'';
+  let rows=allTransfers;
+  if(fltType)rows=rows.filter(t=>t.type===fltType);
+  if(fltStud)rows=rows.filter(t=>t.student_id===fltStud);
+  rows=applyFilters(rows,activeFiltersAT);
+  batchVisibleTransIds=rows.map(t=>t.id);
+  renderChips('at-filter-chips','at-filter-btn','atransfer');
+  const el=$('a-transfers-body');
+  if(!rows.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans-adm"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
+    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th><th>Date</th><th>Type</th><th>Student</th><th>Sender</th><th>Receiver</th><th>Amount</th><th>Split Month</th><th>Notes</th><th></th></tr></thead>
+    <tbody>${rows.map(t=>{
+      const isSplit=t.type==='split';
+      const studName=sm[t.student_id]||'';
+      const moneyIn=studName&&(t.receiver===studName||t.receiver==='Student');
+      const moneyOut=studName&&(t.sender===studName||t.sender==='Student');
+      const amtCls=isSplit?'amt-neu':(moneyIn?'amt-in':moneyOut?'amt-out':'amt-neu');
+      const tsel=batchSelTrans.has(t.id);
+      return`<tr class="${tsel?'batch-sel':''}${isSplit?(tsel?' split-row':' split-row'):''}">
+      <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
+      <td><span class="bdg ${isSplit?'b-act':'b-oth'}">${t.type}</span></td>
+      <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${t.student_id}')">${esc(studName||'—')}</td>
+      <td>${esc(t.sender)}</td><td>${esc(t.receiver)}</td>
+      <td class="${amtCls}">${fm(t.amount)}</td>
+      <td style="color:var(--muted2);">${t.split_month||'—'}</td>
+      <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
+      <td><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+    </tr>`;}).join('')}</tbody></table>`;
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function renderStakersList(){
+  const el=$('a-stakers-list');
+  if(!allStakers.length){el.innerHTML=`<div style="padding:.5rem;color:var(--muted);font-size:13px;">No backers yet.</div>`;return;}
+  el.innerHTML=allStakers.map(sk=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem;border-bottom:1px solid var(--border);">
+    <span style="cursor:pointer;color:var(--accent);" onclick="openStakerInfo('${sk.id}')">${esc(sk.name)}</span>
+    <div style="display:flex;gap:4px;">
+      <button class="btn btn-g btn-sm" onclick="editStaker('${sk.id}')">Edit</button>
+      <button class="btn btn-d btn-sm" onclick="delStaker('${sk.id}')">Del</button>
+    </div>
+  </div>`).join('');
+}
+
+// ── STUDENT INFO MODAL ────────────────────────────────────────────────────────
+function openStudInfo(sid){
+  const s=allStuds.find(x=>x.id===sid);if(!s)return;
+  const ss=allSess.filter(x=>x.student_id===sid);
+  const liveSS=ss.filter(x=>x.play_type==='live'),onlineSS=ss.filter(x=>x.play_type==='online');
+  const liveContracts=allContracts.filter(c=>c.student_id===sid&&(c.play_type==='live'||c.play_type==='both'));
+  const onlineContracts=allContracts.filter(c=>c.student_id===sid&&(c.play_type==='online'||c.play_type==='both'));
+  const pt=s.play_types||'live';
+  $('info-modal-name').innerHTML=`<span style="cursor:pointer;color:var(--accent);" onclick="cov('info-overlay')">${esc(s.name)}</span> <span style="font-size:13px;color:var(--muted2);">#${s.id}</span>`;
+
+  const liveActiveContract=liveContracts.find(c=>c.active!==false);
+  const onlineActiveContract=onlineContracts.find(c=>c.active!==false);
+
+  function contractBlock(type,sessions,contracts,activeContract){
+    if(!sessions.length&&!contracts.length)return'';
+    const accentCol=type==='live'?'var(--live)':'var(--online)';
+    const cs=calcContractStats(sessions,activeContract,type);
+    const hrs=sessions.reduce((a,x)=>a+parseDur(x.duration),0);
+    const hands=sessions.reduce((a,x)=>a+(parseInt(x.hands_played)||0),0);
+    const wr=sessions.length?Math.round(sessions.filter(x=>+x.profit>0).length/sessions.length*100):0;
+    const bb100=type==='online'?calcBB100(sessions):null;
+    const bankroll=allBankroll.filter(b=>b.student_id===sid).reduce((a,x)=>a+(+x.amount||0),0);
+    return`<div style="margin-bottom:1.25rem;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:${accentCol};font-family:var(--mono);margin-bottom:.75rem;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${accentCol};"></span>${type}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;margin-bottom:.9rem;">
+        <div class="sc"><div class="sc-lbl">Sessions</div><div class="sc-val neu">${sessions.length}</div></div>
+        <div class="sc"><div class="sc-lbl">Net P&L</div><div class="sc-val ${cs.netProfit>0?'pos':cs.netProfit<0?'neg':'neu'}">${fm(cs.netProfit)}</div></div>
+        <div class="sc"><div class="sc-lbl">Win Rate</div><div class="sc-val neu">${sessions.length?wr+'%':'—'}</div></div>
+        ${type==='live'?`<div class="sc"><div class="sc-lbl">Hours</div><div class="sc-val neu">${hrs>0?hrs.toFixed(1)+'h':'—'}</div></div>
+        <div class="sc"><div class="sc-lbl">$/hr</div><div class="sc-val ${hrs>0&&cs.netProfit/hrs>0?'pos':hrs>0&&cs.netProfit/hrs<0?'neg':'neu'}">${hrs>0?fm(Math.round(cs.netProfit/hrs)):'—'}</div></div>`
+        :`<div class="sc"><div class="sc-lbl">Hands</div><div class="sc-val neu">${hands>0?hands.toLocaleString():'—'}</div></div>
+        <div class="sc"><div class="sc-lbl">BB/100</div><div class="sc-val ${bb100>0?'pos':bb100<0?'neg':'neu'}">${bb100!==null?bb100.toFixed(2):'—'}</div></div>`}
+        <div class="sc"><div class="sc-lbl">Makeup</div><div class="sc-val ${cs.makeup>0?'neg':'pos'}">${cs.makeup>0?fm(cs.makeup):'Clear'}</div></div>
+        <div class="sc"><div class="sc-lbl">Student Take</div><div class="sc-val pos">${fm(Math.round(cs.studentTake))}</div></div>
+        <div class="sc"><div class="sc-lbl">Staker Cut</div><div class="sc-val neu">${fm(Math.round(cs.stakerTake))}</div></div>
+        <div class="sc"><div class="sc-lbl">Bankroll</div><div class="sc-val ${bankroll>0?'pos':bankroll<0?'neg':'neu'}">${fm(bankroll)}</div></div>
+      </div>
+      ${activeContract?`<div style="font-size:11px;color:var(--muted2);margin-bottom:.5rem;">Active contract: ${activeContract.start_date}${activeContract.end_date?' → '+activeContract.end_date:' (open-ended)'}</div>`:'<div style="font-size:11px;color:var(--muted);margin-bottom:.5rem;">No active contract</div>'}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-g btn-sm" onclick="cov('info-overlay');filterAdminToStudent('${sid}','${type}')">→ View ${type} sessions</button>
+        <button class="btn btn-g btn-sm" onclick="cov('info-overlay');openContractModal('${sid}','${type}')">+ Contract</button>
+      </div>
+    </div>`;
+  }
+
+  const dvdr=pt==='both'?`<div style="border-top:1px solid var(--border2);margin:1rem 0;"></div>`:'';
+  const notes=s.notes?`<div style="margin-top:1rem;padding:.9rem;background:var(--s1);border-radius:var(--r);font-size:12px;color:var(--muted2);line-height:1.7;">${esc(s.notes)}</div>`:'';
+  const liveBlock=pt!=='online'?contractBlock('live',liveSS,liveContracts,liveActiveContract):'';
+  const onlineBlock=pt!=='live'?contractBlock('online',onlineSS,onlineContracts,onlineActiveContract):'';
+  $('info-modal-body').innerHTML=liveBlock+dvdr+onlineBlock+notes;
+  ov('info-overlay');
+}
+function filterAdminToStudent(sid,type){aTab('sessions',document.querySelectorAll('#admin-app .tab-btn')[1]);$('a-flt-stud').value=sid;$('a-flt-type').value=type;renderAllSess();}
+
+// ── STAKER INFO MODAL ─────────────────────────────────────────────────────────
+function openStakerInfo(skid){
+  const sk=allStakers.find(x=>x.id===skid);if(!sk)return;
+  const contracts=allContracts.filter(c=>c.staker_id===skid);
+  const activeContracts=contracts.filter(c=>c.active!==false);
+  const studentIds=[...new Set(activeContracts.map(c=>c.student_id))];
+  const skSess=allSess.filter(s=>studentIds.includes(s.student_id));
+  const skNet=sum(skSess,'profit');
+  const skMakeup=studentIds.reduce((acc,sid)=>{const lcs=getStudentContractStats(sid,'live');const ocs=getStudentContractStats(sid,'online');return acc+lcs.makeup+ocs.makeup;},0);
+  const skLiquidity=allBankroll.filter(b=>studentIds.includes(b.student_id)).reduce((a,x)=>a+(+x.amount||0),0);
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+
+  $('staker-info-name').innerHTML=`<span style="cursor:pointer;color:var(--accent);">${esc(sk.name)}</span> <span style="font-size:12px;color:var(--muted2);">Staker</span>`;
+  $('staker-info-body').innerHTML=`
+    <div class="stats-grid" style="margin-bottom:1rem;">
+      <div class="sc"><div class="sc-lbl">Active Students</div><div class="sc-val neu">${studentIds.length}</div></div>
+      <div class="sc"><div class="sc-lbl">Net P&L (stable)</div><div class="sc-val ${skNet>0?'pos':skNet<0?'neg':'neu'}">${fm(skNet)}</div></div>
+      <div class="sc"><div class="sc-lbl">Total Makeup</div><div class="sc-val ${skMakeup>0?'neg':'pos'}">${skMakeup>0?fm(skMakeup):'Clear'}</div></div>
+      <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val neu">${fm(skLiquidity)}</div></div>
+    </div>
+    <div class="section-label">Active Contracts</div>
+    ${activeContracts.length?activeContracts.map(c=>{
+      const sid=c.student_id;const sName=sm[sid]||sid;
+      const ss=allSess.filter(s=>s.student_id===sid&&(c.play_type==='both'||s.play_type===c.play_type));
+      const cs=calcContractStats(ss,c,c.play_type==='both'?'online':c.play_type);
+      return`<div class="contract-card active-contract">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+          <span><span class="contract-badge ${c.play_type}">${c.play_type}</span><span style="cursor:pointer;color:var(--accent);font-weight:600;" onclick="cov('staker-info-overlay');openStudInfo('${sid}')">${esc(sName)}</span></span>
+          <span class="contract-badge active">Active</span>
+        </div>
+        <div style="display:flex;gap:1.5rem;font-size:12px;color:var(--muted2);">
+          <span>Net: <strong style="color:${cs.netProfit>=0?'var(--accent)':'var(--red)'}">${fm(cs.netProfit)}</strong></span>
+          <span>Makeup: <strong style="color:${cs.makeup>0?'var(--red)':'var(--accent)'}">${cs.makeup>0?fm(cs.makeup):'Clear'}</strong></span>
+          <span>Student take: <strong style="color:var(--text)">${fm(Math.round(cs.studentTake))}</strong></span>
+          <span>Staker cut: <strong style="color:var(--text)">${fm(Math.round(cs.stakerTake))}</strong></span>
+        </div>
+      </div>`;
+    }).join(''):`<div style="color:var(--muted);font-size:13px;">No active contracts.</div>`}
+    ${sk.notes?`<div style="margin-top:1rem;padding:.9rem;background:var(--s1);border-radius:var(--r);font-size:12px;color:var(--muted2);line-height:1.7;">${esc(sk.notes)}</div>`:''}`;
+  ov('staker-info-overlay');
+}
+
+// ── SESSION CRUD ──────────────────────────────────────────────────────────────
+function openSessModal(){
+  editSessId=null;selFmts.clear();resetSessForm();
+  populateSessionDataLists();
+  $('sess-modal-title').textContent='Log Session';$('adm-stud-row').style.display='none';$('stud-type-row').style.display='block';
+  const dot=$('sess-type-dot'),lbl=$('sess-type-label');
+  if(curMode==='live'){dot.style.background='var(--live)';lbl.textContent='Live';}
+  else if(curMode==='online'){dot.style.background='var(--online)';lbl.textContent='Online';}
+  else{
+    $('stud-type-row').style.display='none';$('adm-stud-row').style.display='block';
+    const fsm=$('f-stud-sel-menu');
+    if(fsm)fsm.innerHTML=`<div class="cdd-opt selected">#${me.id} — ${esc(me.name)}</div>`;
+    setCdd('f-stud-sel',me.id,`#${me.id} — ${me.name}`,null);
+  }
+  $('sess-save-btn').textContent='Save Session';toggleDurField(curMode==='online'?'online':'live');ov('sess-overlay');
+}
+function openAdmSessModal(sid){
+  editSessId=null;selFmts.clear();resetSessForm();
+  $('sess-modal-title').textContent='Log Session';$('adm-stud-row').style.display='block';$('stud-type-row').style.display='none';
+  // populate student cdd
+  const fsm=$('f-stud-sel-menu');
+  if(fsm)fsm.innerHTML=allStuds.map(s=>`<div class="cdd-opt${s.id===sid?' selected':''}" onclick="setCdd('f-stud-sel','${s.id}','#${s.id} — ${s.name.replace(/'/g,"\\'")}',this);updateAdmPlayTypeOpts('${s.id}')">#${s.id} — ${esc(s.name)}</div>`).join('');
+  const picked=allStuds.find(s=>s.id===sid);
+  if(picked){setCdd('f-stud-sel',picked.id,`#${picked.id} — ${picked.name}`,null);updateAdmPlayTypeOpts(picked.id);}
+  $('sess-save-btn').textContent='Save Session';toggleDurField($('f-play-type-adm').value||'live');ov('sess-overlay');
+}
+function updateAdmPlayTypeOpts(sid){
+  const s=allStuds.find(x=>x.id===sid);if(!s)return;
+  const pt=s.play_types||'live';
+  const menu=$('f-play-type-adm-menu');
+  if(menu){
+    menu.innerHTML='';
+    if(pt!=='online')menu.innerHTML+=`<div class="cdd-opt" onclick="setCdd('f-play-type-adm','live','Live',this);toggleDurField('live')"><span class="cdd-dot" style="background:var(--live)"></span>Live</div>`;
+    if(pt!=='live')menu.innerHTML+=`<div class="cdd-opt" onclick="setCdd('f-play-type-adm','online','Online',this);toggleDurField('online')"><span class="cdd-dot" style="background:var(--online)"></span>Online</div>`;
+    const first=menu.querySelector('.cdd-opt');if(first)first.click();
+  }
+}
+function editSess(id){
+  const s=isAdmin?allSess.find(x=>x.id===id):mySess.find(x=>x.id===id);if(!s)return;
+  editSessId=id;resetSessForm();populateSessionDataLists();
+  $('sess-modal-title').textContent='Edit Session';
+  $('f-date').value=s.date;
+  // set venue cdd
+  const vl=$('f-venue-label');if(vl){vl.textContent=s.venue||'';vl.style.color='var(--text)';}$('f-venue').value=s.venue||'';
+  // set stake cdd
+  const sl=$('f-stake-label');if(sl){sl.textContent=s.stake_level||'';sl.style.color='var(--text)';}$('f-stake').value=s.stake_level||'';
+  // handle rakeback edit
+  if(s.stake_level==='Rakeback'){
+    toggleRakeback(true);
+    const destMatch=(s.notes||'').match(/^Rakeback to:\s*([^|]+)/);
+    if(destMatch){
+      const dest=destMatch[1].trim();
+      setCdd('f-rb-dest',dest,dest,null);
+    }
+    // strip rakeback prefix from notes for the notes field
+    const cleanedNotes=(s.notes||'').replace(/^Rakeback(?:\s+to:\s*[^|]+)?(?:\s*\|\s*)?/,'').trim();
+    $('f-notes').value=cleanedNotes;
+  } else {
+    toggleRakeback(false);
+    $('f-notes').value=s.notes||'';
+  }
+  $('f-buyin').value=s.buy_in||'';$('f-cashout').value=s.cash_out||'';$('f-dur').value=s.duration||'';$('f-hands').value=s.hands_played||'';
+  selFmts=new Set((s.game_type||'').split(',').map(f=>f.trim()).filter(Boolean));
+  document.querySelectorAll('.fmt-chip').forEach(c=>{c.className='fmt-chip';if(selFmts.has(c.dataset.fmt))c.classList.add('on-'+c.dataset.fmt.toLowerCase());});
+  if(isAdmin){
+    $('adm-stud-row').style.display='block';$('stud-type-row').style.display='none';
+    const fsm=$('f-stud-sel-menu');
+    if(fsm)fsm.innerHTML=allStuds.map(st=>`<div class="cdd-opt${st.id===s.student_id?' selected':''}" onclick="setCdd('f-stud-sel','${st.id}','#${st.id} — ${st.name.replace(/'/g,"\\'")}',this);updateAdmPlayTypeOpts('${st.id}')">#${st.id} — ${esc(st.name)}</div>`).join('');
+    const picked=allStuds.find(x=>x.id===s.student_id);
+    if(picked)setCdd('f-stud-sel',picked.id,`#${picked.id} — ${picked.name}`,null);
+    updateAdmPlayTypeOpts(s.student_id);
+    setCdd('f-play-type-adm',s.play_type,s.play_type==='live'?'Live':'Online',null);
+  } else {
+    $('adm-stud-row').style.display='none';$('stud-type-row').style.display='block';
+    const dot=$('sess-type-dot'),lbl=$('sess-type-label');
+    dot.style.background=s.play_type==='live'?'var(--live)':'var(--online)';lbl.textContent=s.play_type==='live'?'Live':'Online';
+  }
+  calcRes();toggleDurField(s.play_type||'live');$('sess-save-btn').textContent='Update Session';ov('sess-overlay');
+}
+async function saveSess(){
+  const date=$('f-date').value,venue=$('f-venue').value.trim();
+  if(!date||!venue){toast('Date and venue required','err');return;}
+  const buyin=parseFloat($('f-buyin').value)||0,cashout=parseFloat($('f-cashout').value)||0;
+  let sid,ptype;
+  if(isAdmin){sid=$('f-stud-sel').value;ptype=$('f-play-type-adm').value;}
+  else if(me.play_types==='both'&&!editSessId){sid=me.id;ptype=$('f-play-type-adm').value;}
+  else if(editSessId){const ex=mySess.find(x=>x.id===editSessId);sid=me.id;ptype=ex?ex.play_type:curMode;}
+  else{sid=me.id;ptype=curMode;}
+  if(!sid){toast('Select a student','err');return;}
+  const stakeVal=$('f-stake').value.trim()||null;
+  const isRB=stakeVal==='Rakeback';
+  const rbDest=isRB?$('f-rb-dest').value.trim():'';
+  let notes=$('f-notes').value.trim()||null;
+  if(isRB&&rbDest)notes=notes?`Rakeback to: ${rbDest} | ${notes}`:`Rakeback to: ${rbDest}`;
+  else if(isRB&&!notes)notes='Rakeback';
+  const row={student_id:sid,play_type:ptype,date,venue,game_type:isRB?null:([...selFmts].join(', ')||null),stake_level:stakeVal,duration:isRB?null:(ptype==='live'?(parseFloat($('f-dur').value)||null):null),hands_played:isRB?null:(ptype==='online'?(parseInt($('f-hands').value)||null):null),buy_in:buyin,cash_out:cashout,profit:cashout-buyin,notes};
+  const btn=$('sess-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  const{error}=editSessId?await SB.from('sessions').update(row).eq('id',editSessId):await SB.from('sessions').insert([row]);
+  btn.textContent=editSessId?'Update Session':'Save Session';btn.disabled=false;
+  if(error){toast('Save failed: '+error.message,'err');return;}
+  if(!editSessId&&(cashout-buyin)!==0){
+    await SB.from('bankroll_entries').insert([{student_id:sid,amount:cashout-buyin,source_type:'session',notes:`Session ${date} at ${venue}`}]);
+  }
+  toast(editSessId?'Session updated':'Session logged','ok');cov('sess-overlay');isAdmin?loadAdminData():loadStudData();
+}
+async function delSess(id){
+  if(!confirm('Delete this session?'))return;
+  const{error}=await SB.from('sessions').delete().eq('id',id);
+  if(error){toast('Delete failed','err');return;}
+  toast('Session deleted','ok');isAdmin?loadAdminData():loadStudData();
+}
+function resetSessForm(){
+  $('f-date').value=new Date().toISOString().slice(0,10);
+  ['f-venue','f-stake','f-buyin','f-cashout','f-dur','f-hands','f-notes'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  const vl=$('f-venue-label');if(vl){vl.textContent='Select venue…';vl.style.color='var(--muted2)';}
+  const sl=$('f-stake-label');if(sl){sl.textContent='Select stake…';sl.style.color='var(--muted2)';}
+  toggleRakeback(false);
+  const r=$('f-result');r.value='';r.style.color='var(--muted2)';
+  document.querySelectorAll('.fmt-chip').forEach(c=>c.className='fmt-chip');selFmts.clear();
+}
+
+// ── STUDENT CRUD ──────────────────────────────────────────────────────────────
+function openAddStudent(){
+  editStudId=null;$('stud-modal-title').textContent='Add Student';
+  $('st-id').value='';$('st-id').disabled=false;$('st-name').value='';$('st-email').value='';
+  setCdd('st-active','true','Active',null);setCdd('st-play-types','live','Live only',null);
+  $('st-notes').value='';$('stud-save-btn').textContent='Add Student';ov('stud-overlay');
+}
+function editStud(id){
+  const s=allStuds.find(x=>x.id===id);if(!s)return;
+  editStudId=id;$('stud-modal-title').textContent='Edit Student';
+  $('st-id').value=s.id;$('st-id').disabled=true;$('st-name').value=s.name;$('st-email').value=s.email||'';
+  const ptLabels={live:'Live only',online:'Online only',both:'Both'};
+  setCdd('st-active',s.active?'true':'false',s.active?'Active':'Inactive',null);
+  setCdd('st-play-types',s.play_types||'live',ptLabels[s.play_types||'live'],null);
+  $('st-notes').value=s.notes||'';$('stud-save-btn').textContent='Save Changes';ov('stud-overlay');
+}
+async function saveStud(){
+  const name=$('st-name').value.trim();if(!name){toast('Name required','err');return;}
+  if(!editStudId){const id=$('st-id').value.trim();if(!/^\d{5}$/.test(id)){toast('ID must be 5 digits','err');return;}}
+  const payload={name,email:$('st-email').value.trim()||null,active:$('st-active').value==='true',play_types:$('st-play-types').value,notes:$('st-notes').value.trim()||null};
+  const btn=$('stud-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  let error;
+  if(editStudId){({error}=await SB.from('students').update(payload).eq('id',editStudId));}
+  else{({error}=await SB.from('students').insert([{id:$('st-id').value.trim(),...payload}]));}
+  btn.textContent=editStudId?'Save Changes':'Add Student';btn.disabled=false;
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast(editStudId?'Student updated':'Student added','ok');cov('stud-overlay');loadAdminData();
+}
+async function delStud(id){
+  const n=allSess.filter(s=>s.student_id===id).length;
+  if(!confirm(n>0?`Delete student and ${n} session(s)?`:'Delete this student?'))return;
+  await SB.from('sessions').delete().eq('student_id',id);
+  await SB.from('contracts').delete().eq('student_id',id);
+  await SB.from('transfers').delete().eq('student_id',id);
+  await SB.from('bankroll_entries').delete().eq('student_id',id);
+  const{error}=await SB.from('students').delete().eq('id',id);
+  if(error){toast('Delete failed','err');return;}
+  toast('Student deleted','ok');loadAdminData();
+}
+
+// ── CONTRACT CRUD ─────────────────────────────────────────────────────────────
+function openContractModal(sid,preferType){
+  editContractId=null;$('contract-modal-title').textContent='Add Contract';
+  // student dropdown
+  const csm=$('c-student-menu');
+  if(csm)csm.innerHTML=allStuds.map(s=>`<div class="cdd-opt${s.id===sid?' selected':''}" onclick="setCdd('c-student','${s.id}','#${s.id} — ${s.name.replace(/'/g,"\\'")}',this)">#${s.id} — ${esc(s.name)}</div>`).join('');
+  const picked=allStuds.find(s=>s.id===sid);if(picked)setCdd('c-student',picked.id,`#${picked.id} — ${picked.name}`,null);
+  // staker dropdown
+  const ckm=$('c-staker-menu');
+  if(!allStakers.length){
+    if(ckm)ckm.innerHTML=`<div class="cdd-opt" style="color:var(--orange);">— No stakers yet —</div>`;
+  } else {
+    if(ckm)ckm.innerHTML=allStakers.map(k=>`<div class="cdd-opt" onclick="setCdd('c-staker','${k.id}','${k.name.replace(/'/g,"\\'")}',this)">${esc(k.name)}</div>`).join('');
+    const firstSk=allStakers[0];if(firstSk)setCdd('c-staker',firstSk.id,firstSk.name,null);
+  }
+  const pt=preferType||'live';
+  setCdd('c-type',pt,pt==='live'?'Live':'Online',null);
+  setCdd('c-active','true','Active',null);
+  $('c-start').value=new Date().toISOString().slice(0,10);$('c-end').value='';
+  $('c-start-makeup').value='0';$('c-notes').value='';$('c-tier-rows').innerHTML='';
+  [[0,37500,60],[37500,67500,64],[67500,95000,68],[95000,null,74]].forEach(([mn,,p])=>addContractTier(mn,p));
+  $('contract-save-btn').textContent='Save Contract';ov('contract-overlay');
+}
+function editContract(id){
+  const c=allContracts.find(x=>x.id===id);if(!c)return;
+  editContractId=id;$('contract-modal-title').textContent='Edit Contract';
+  const csm=$('c-student-menu');
+  if(csm)csm.innerHTML=allStuds.map(s=>`<div class="cdd-opt${s.id===c.student_id?' selected':''}" onclick="setCdd('c-student','${s.id}','#${s.id} — ${s.name.replace(/'/g,"\\'")}',this)">#${s.id} — ${esc(s.name)}</div>`).join('');
+  const ps=allStuds.find(s=>s.id===c.student_id);if(ps)setCdd('c-student',ps.id,`#${ps.id} — ${ps.name}`,null);
+  const ckm=$('c-staker-menu');
+  if(ckm)ckm.innerHTML=allStakers.map(k=>`<div class="cdd-opt${k.id===c.staker_id?' selected':''}" onclick="setCdd('c-staker','${k.id}','${k.name.replace(/'/g,"\\'")}',this)">${esc(k.name)}</div>`).join('');
+  const pk=allStakers.find(k=>k.id===c.staker_id);if(pk)setCdd('c-staker',pk.id,pk.name,null);
+  setCdd('c-type',c.play_type,c.play_type==='live'?'Live':'Online',null);
+  setCdd('c-active',c.active?'true':'false',c.active?'Active':'Inactive',null);
+  $('c-start').value=c.start_date;$('c-end').value=c.end_date||'';
+  $('c-start-makeup').value=c.starting_makeup||0;$('c-notes').value=c.notes||'';
+  $('c-tier-rows').innerHTML='';parseSplits(c.splits,c.play_type==='both'?'online':c.play_type).forEach(t=>addContractTier(t.min,t.pct));
+  $('contract-save-btn').textContent='Save Changes';ov('contract-overlay');
+}
+function addContractTier(mn='',pct=''){
+  const row=document.createElement('div');row.className='tier-row';
+  row.innerHTML=`<input type="number" placeholder="Min $" value="${mn}" min="0"><input type="number" placeholder="%" value="${pct}" min="0" max="100"><button class="tier-rm" onclick="this.parentElement.remove()">✕</button>`;
+  $('c-tier-rows').appendChild(row);
+}
+function buildContractSplits(){
+  return [...$('c-tier-rows').querySelectorAll('.tier-row')].map(r=>{const ins=[...r.querySelectorAll('input')];return{min:parseFloat(ins[0].value)||0,max:null,pct:parseFloat(ins[1].value)||0};}).sort((a,b)=>a.min-b.min).map((t,i,arr)=>{t.max=arr[i+1]?arr[i+1].min:null;return t;});
+}
+async function saveContract(){
+  const student_id=$('c-student').value,staker_id=$('c-staker').value;
+  if(!student_id||!staker_id){toast('Student and staker required','err');return;}
+  const play_type=$('c-type').value,active=$('c-active').value==='true';
+  const start_date=$('c-start').value,end_date=$('c-end').value||null;
+  if(!start_date){toast('Start date required','err');return;}
+  // Check for existing active contract of same type
+  if(active&&!editContractId){
+    const existing=allContracts.find(c=>c.student_id===student_id&&c.play_type===play_type&&c.active);
+    if(existing&&!confirm(`This student already has an active ${play_type} contract. Deactivate it and create a new one?`))return;
+    if(existing)await SB.from('contracts').update({active:false}).eq('id',existing.id);
+  }
+  const payload={student_id,staker_id,play_type,active,start_date,end_date,splits:JSON.stringify(buildContractSplits()),starting_makeup:parseFloat($('c-start-makeup').value)||0,notes:$('c-notes').value.trim()||null};
+  const btn=$('contract-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  let error;
+  if(editContractId){({error}=await SB.from('contracts').update(payload).eq('id',editContractId));}
+  else{({error}=await SB.from('contracts').insert([payload]));}
+  btn.textContent='Save Contract';btn.disabled=false;
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Contract saved','ok');cov('contract-overlay');loadAdminData();
+}
+
+// ── STAKER CRUD ───────────────────────────────────────────────────────────────
+function openStakerModal(){editStakerId=null;$('staker-modal-title').textContent='Add Backer';$('sk-name').value='';$('sk-notes').value='';$('staker-save-btn').textContent='Add Backer';ov('staker-overlay');}
+function editStaker(id){const sk=allStakers.find(x=>x.id===id);if(!sk)return;editStakerId=id;$('staker-modal-title').textContent='Edit Backer';$('sk-name').value=sk.name;$('sk-notes').value=sk.notes||'';$('staker-save-btn').textContent='Save Changes';ov('staker-overlay');}
+async function saveStaker(){
+  const name=$('sk-name').value.trim();if(!name){toast('Name required','err');return;}
+  const payload={name,notes:$('sk-notes').value.trim()||null};
+  let error;
+  if(editStakerId){({error}=await SB.from('stakers').update(payload).eq('id',editStakerId));}
+  else{({error}=await SB.from('stakers').insert([payload]));}
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Staker saved','ok');cov('staker-overlay');loadAdminData();
+}
+async function delStaker(id){if(!confirm('Delete this backer?'))return;const{error}=await SB.from('stakers').delete().eq('id',id);if(error){toast('Delete failed','err');return;}toast('Backer deleted','ok');loadAdminData();}
+
+// ── TRANSFER CRUD ─────────────────────────────────────────────────────────────
+function openTransferModal(){
+  editTransferId=null;curTransferType='transfer';
+  $('transfer-modal-title').textContent='New Transfer';
+  $('t-date').value=new Date().toISOString().slice(0,10);
+  $('t-amount').value='';$('t-dest').value='';$('t-notes').value='';
+  $('t-split-fields').style.display='none';
+
+  // Build party list
+  const backerNames=allStakers.map(k=>k.name);
+  const source=isAdmin?allSess:mySess;
+  const hasActiveLiveT=myContracts.some(c=>c.play_type==='live'&&c.active!==false);
+  const platforms=isAdmin?[...new Set(allSess.map(s=>s.venue).filter(Boolean))]:
+    (me.play_types!=='online'&&hasActiveLiveT?['Live Roll',...myVenues]:[...new Set(source.map(s=>s.venue).filter(Boolean)),...myVenues]);
+  const parties=[...new Set(['Student',...backerNames,...platforms])];
+  const partyOpts=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('');
+  const partyOptsR=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('');
+  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts;
+  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOptsR;
+  // reset sender/receiver labels
+  const sl=$('t-sender-label');if(sl){sl.textContent='Select…';sl.style.color='var(--muted2)';}
+  const rl=$('t-receiver-label');if(rl){rl.textContent='Select…';rl.style.color='var(--muted2)';}
+  $('t-sender').value='';$('t-receiver').value='';
+
+  // Student dropdown
+  if(isAdmin){
+    const tsm=$('t-student-menu');
+    if(tsm)tsm.innerHTML=allStuds.map(s=>`<div class="cdd-opt" onclick="setCdd('t-student','${s.id}','#${s.id} — ${s.name.replace(/'/g,"\\'")}',this);onTransferStudentChange()">#${s.id} — ${esc(s.name)}</div>`).join('');
+    const tl=$('t-student-label');if(tl){tl.textContent='Select student…';tl.style.color='var(--muted2)';}
+    $('t-student').value='';
+    $('t-stud-wrap').style.display='';
+  } else {
+    setCdd('t-student',me.id,me.name,null);
+    $('t-stud-wrap').style.display='none';
+  }
+  setTransferType('transfer');
+  $('transfer-save-btn').textContent='Save';ov('transfer-overlay');
+}
+function setTransferType(type){
+  curTransferType=type;
+  $('ttype-transfer').className='ttype-btn'+(type==='transfer'?' active':'');
+  $('ttype-split').className='ttype-btn'+(type==='split'?' active':'');
+  $('t-split-fields').style.display=type==='split'?'block':'none';
+  if(type==='split'){
+    $('t-split-month').value=new Date().toISOString().slice(0,7);
+    autoFillSplit();
+  }
+}
+function onTransferStudentChange(){if(curTransferType==='split')autoFillSplit();}
+function autoFillSplit(){
+  const sid=isAdmin?$('t-student').value:(me?me.id:'');
+  const month=$('t-split-month').value;// e.g. "2026-03"
+  if(!sid||!month)return;
+  const [yr,mo]=month.split('-').map(Number);
+  // Get sessions for that student in that month
+  const source=isAdmin?allSess:mySess;
+  const contracts=isAdmin?allContracts:myContracts;
+  const monthSess=source.filter(s=>s.student_id===sid&&s.date.startsWith(month));
+  const liveSess=monthSess.filter(s=>s.play_type==='live');
+  const onlineSess=monthSess.filter(s=>s.play_type==='online');
+  const liveContract=contracts.find(c=>c.student_id===sid&&(c.play_type==='live'||c.play_type==='both')&&c.active);
+  const onlineContract=contracts.find(c=>c.student_id===sid&&(c.play_type==='online'||c.play_type==='both')&&c.active);
+  const lStats=calcContractStats(liveSess,liveContract,'live');
+  const oStats=calcContractStats(onlineSess,onlineContract,'online');
+  const totalStudCut=Math.round(lStats.studentTake+oStats.studentTake);
+  const totalStakCut=Math.round(lStats.stakerTake+oStats.stakerTake);
+  const total=totalStudCut+totalStakCut;
+  $('t-stud-cut').value=totalStudCut;
+  $('t-stak-cut').value=totalStakCut;
+  $('t-amount').value=total;
+  $('t-split-info').textContent=`Live: ${fm(lStats.netProfit)} net | Online: ${fm(oStats.netProfit)} net | Total payout: ${fm(total)}`;
+}
+function onSplitCutChange(){
+  const sc=parseFloat($('t-stud-cut').value)||0,sk=parseFloat($('t-stak-cut').value)||0;
+  $('t-amount').value=sc+sk;
+}
+async function saveTransfer(){
+  const date=$('t-date').value,amount=parseFloat($('t-amount').value)||0;
+  const sender=$('t-sender').value,receiver=$('t-receiver').value;
+  if(!date||!sender||!receiver){toast('Date, sender and receiver required','err');return;}
+  const sid=isAdmin?$('t-student').value:(me?me.id:null);
+  const row={
+    type:curTransferType,student_id:sid||null,date,sender,receiver,amount,
+    notes:$('t-notes').value.trim()||null,
+    ...(curTransferType==='split'?{split_month:$('t-split-month').value,student_cut:parseFloat($('t-stud-cut').value)||null,staker_cut:parseFloat($('t-stak-cut').value)||null}:{})
+  };
+  const btn=$('transfer-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  const{error}=await SB.from('transfers').insert([row]);
+  btn.textContent='Save';btn.disabled=false;
+  if(error){toast('Error: '+error.message,'err');return;}
+  // Update bankroll: splits reduce student bankroll by total payout
+  if(curTransferType==='split'&&sid){
+    const totalPayout=parseFloat($('t-amount').value)||0;
+    if(totalPayout>0)await SB.from('bankroll_entries').insert([{student_id:sid,amount:-totalPayout,source_type:'transfer',notes:`Split ${$('t-split-month').value}`}]);
+  }
+  toast('Transfer saved','ok');cov('transfer-overlay');isAdmin?loadAdminData():loadStudData();
+}
+async function delTransfer(id){
+  if(!confirm('Delete this transfer?'))return;
+  const{error}=await SB.from('transfers').delete().eq('id',id);
+  if(error){toast('Delete failed','err');return;}
+  toast('Transfer deleted','ok');isAdmin?loadAdminData():loadStudData();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function aTab(name,btn){
+  document.querySelectorAll('#admin-app .tab-pane').forEach(p=>p.classList.remove('active'));
+  $('a-tab-'+name).classList.add('active');
+  document.querySelectorAll('#admin-app .tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(name==='analytics')renderAnalyticsTab();
+  if(name==='students')renderStudentsTab();
+}
+
+// ── OVERLAYS ──────────────────────────────────────────────────────────────────
+function ov(id){$(id).classList.add('open');}function cov(id){$(id).classList.remove('open');}function oout(e,id){if(e.target.id===id)cov(id);}
+
+// ── CUSTOM DROPDOWN ENGINE ────────────────────────────────────────────────────
+let _openCdd=null;
+document.addEventListener('click',e=>{
+  if(_openCdd&&!_openCdd.contains(e.target)){closeCdd(_openCdd);}
+});
+function toggleCdd(triggerId,menuId){
+  const trigger=$(triggerId),menu=$(menuId);
+  if(!trigger||!menu)return;
+  const wrap=trigger.closest('.cdd-wrap');
+  if(menu.style.display==='none'){
+    if(_openCdd&&_openCdd!==wrap){closeCdd(_openCdd);}
+    menu.style.display='block';trigger.classList.add('open');_openCdd=wrap;
+  } else {closeCdd(wrap);}
+}
+function closeCdd(wrap){
+  if(!wrap)return;
+  const menu=wrap.querySelector('.cdd-menu');const trigger=wrap.querySelector('.cdd-trigger');
+  if(menu)menu.style.display='none';if(trigger)trigger.classList.remove('open');
+  if(_openCdd===wrap)_openCdd=null;
+}
+function setCdd(hiddenId,value,label,optEl){
+  const hidden=$(hiddenId);const labelEl=$(hiddenId+'-label');
+  if(hidden)hidden.value=value;
+  if(labelEl){labelEl.textContent=label;labelEl.style.color=value?'var(--text)':'var(--muted2)';}
+  // mark selected
+  if(optEl){
+    const menu=optEl.closest('.cdd-menu');
+    if(menu)menu.querySelectorAll('.cdd-opt').forEach(o=>o.classList.remove('selected'));
+    optEl.classList.add('selected');
+    const wrap=menu?menu.closest('.cdd-wrap'):null;if(wrap)closeCdd(wrap);
+  }
+}
+function buildCddMenu(menuId,items,hiddenId,onChange){
+  // items: [{value, label, dot}]
+  const menu=$(menuId);if(!menu)return;
+  menu.innerHTML=items.map(it=>{
+    const dot=it.dot?`<span class="cdd-dot" style="background:${it.dot}"></span>`:'';
+    return`<div class="cdd-opt" onclick="setCdd('${hiddenId}','${it.value}','${it.label.replace(/'/g,"\\'")}',this);${onChange||''}">${dot}${it.label}</div>`;
+  }).join('');
+}
+
+// ── FORMAT CHIPS ──────────────────────────────────────────────────────────────
+function toggleDurField(ptype){$('f-dur-wrap').style.display=ptype==='online'?'none':'';$('f-hands-wrap').style.display=ptype==='online'?'':'none';}
+function toggleRakeback(on){
+  $('f-rb-dest-wrap').style.display=on?'':'none';
+  if(!on){$('f-rb-dest').value='';$('f-rb-dest-label').textContent='Select destination…';$('f-rb-dest-label').style.color='var(--muted2)';}
+}
+
+// ── BATCH EDIT ───────────────────────────────────────────────────────────────
+function toggleBatchSel(type,id,cb){
+  const set=type==='sess'?batchSelSess:batchSelTrans;
+  if(cb.checked)set.add(id);else set.delete(id);
+  const tr=cb.closest('tr');if(tr)tr.classList.toggle('batch-sel',cb.checked);
+  updateBatchBar(type);
+}
+function toggleBatchAll(type,cb){
+  const set=type==='sess'?batchSelSess:batchSelTrans;
+  const ids=type==='sess'?batchVisibleSessIds:batchVisibleTransIds;
+  if(cb.checked)ids.forEach(id=>set.add(id));else set.clear();
+  // update all row checkboxes
+  const table=cb.closest('table');
+  if(table)table.querySelectorAll('tbody .batch-cb').forEach(c=>{c.checked=cb.checked;const tr=c.closest('tr');if(tr)tr.classList.toggle('batch-sel',cb.checked);});
+  updateBatchBar(type);
+}
+function updateBatchBar(type){
+  const set=type==='sess'?batchSelSess:batchSelTrans;
+  const bars=document.querySelectorAll(type==='sess'?'[id^="batch-bar-sess"]':'[id^="batch-bar-trans"]');
+  bars.forEach(bar=>{
+    bar.classList.toggle('show',set.size>0);
+    const btn=bar.querySelector('.btn-batch');if(btn)btn.textContent=`Edit Selected (${set.size})`;
+    const cnt=bar.querySelector('.batch-count');if(cnt)cnt.textContent=set.size+' selected';
+  });
+}
+function openBatchEdit(type){
+  batchEditType=type;batchAction='';
+  const set=type==='sess'?batchSelSess:batchSelTrans;
+  $('batch-edit-title').textContent=`Batch Edit — ${set.size} ${type==='sess'?'session':'transfer'}${set.size>1?'s':''}`;
+  $('batch-input-area').innerHTML='';
+  $('batch-apply-btn').disabled=true;
+  const actions=type==='sess'
+    ?[{val:'venue',lbl:'Change Venue'},{val:'add-format',lbl:'Add Format'},{val:'remove-format',lbl:'Remove Format'},{val:'add-stake',lbl:'Change Stake'},{val:'remove-stake',lbl:'Remove Stake'}]
+    :[{val:'sender',lbl:'Change Sender'},{val:'receiver',lbl:'Change Receiver'},{val:'flip',lbl:'Flip Sender ↔ Receiver'}];
+  $('batch-action-list').innerHTML=actions.map(a=>`<label><input type="radio" name="batch-action" value="${a.val}" onchange="selectBatchAction('${a.val}')"><span>${a.lbl}</span></label>`).join('');
+  ov('batch-edit-overlay');
+}
+function selectBatchAction(action){
+  batchAction=action;
+  $('batch-apply-btn').disabled=false;
+  const area=$('batch-input-area');
+  // build venue/party options from current data
+  const sessions=isAdmin?allSess:mySess;
+  const venues=[...new Set(sessions.map(s=>s.venue).filter(Boolean))].sort();
+  const parties=[...new Set([...(allParties||[]).map(p=>p.name),...(allStakers||[]).map(s=>s.name),'Student'])].sort();
+  const fmts=['NLH','PLO4','PLO5','Mixed','Other'];
+  const stakeList=isAdmin?[...new Set(allSess.map(s=>s.stake_level).filter(Boolean))].sort():[...new Set([...ONLINE_STAKES,...sessions.map(s=>s.stake_level).filter(Boolean)])];
+  if(action==='venue'){
+    area.innerHTML=`<div class="fld"><label>New Venue</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-venue-cdd" onclick="toggleCdd('be-venue-cdd','be-venue-menu')"><span id="be-venue-label" style="color:var(--muted2);">Select venue…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-venue-menu" style="display:none;">${venues.map(v=>`<div class="cdd-opt" onclick="setCdd('be-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('')}</div></div><input type="hidden" id="be-venue"></div>`;
+  } else if(action==='add-format'||action==='remove-format'){
+    area.innerHTML=`<div class="fld"><label>${action==='add-format'?'Format to Add':'Format to Remove'}</label><div class="fmt-chips">${fmts.map(f=>`<div class="fmt-chip" data-fmt="${f}" onclick="this.classList.toggle('on-${f.toLowerCase()}');this.dataset.on=this.dataset.on==='1'?'':'1'">${f}</div>`).join('')}</div></div>`;
+  } else if(action==='add-stake'){
+    area.innerHTML=`<div class="fld"><label>New Stake</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-stake-cdd" onclick="toggleCdd('be-stake-cdd','be-stake-menu')"><span id="be-stake-label" style="color:var(--muted2);">Select stake…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-stake-menu" style="display:none;">${stakeList.map(s=>`<div class="cdd-opt" onclick="setCdd('be-stake','${s}','${s}',this)"><span class="bdg ${skCls(s)}" style="margin-right:4px;">${s}</span></div>`).join('')}</div></div><input type="hidden" id="be-stake"></div>`;
+  } else if(action==='remove-stake'){
+    area.innerHTML=`<p style="color:var(--muted);font-size:13px;">This will clear the stake level on all selected sessions.</p>`;
+  } else if(action==='sender'){
+    area.innerHTML=`<div class="fld"><label>New Sender</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-sender-cdd" onclick="toggleCdd('be-sender-cdd','be-sender-menu')"><span id="be-sender-label" style="color:var(--muted2);">Select sender…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-sender-menu" style="display:none;">${parties.map(p=>`<div class="cdd-opt" onclick="setCdd('be-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('')}</div></div><input type="hidden" id="be-sender"></div>`;
+  } else if(action==='receiver'){
+    area.innerHTML=`<div class="fld"><label>New Receiver</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-receiver-cdd" onclick="toggleCdd('be-receiver-cdd','be-receiver-menu')"><span id="be-receiver-label" style="color:var(--muted2);">Select receiver…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-receiver-menu" style="display:none;">${parties.map(p=>`<div class="cdd-opt" onclick="setCdd('be-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('')}</div></div><input type="hidden" id="be-receiver"></div>`;
+  } else if(action==='flip'){
+    area.innerHTML=`<p style="color:var(--muted);font-size:13px;">This will swap sender and receiver on all selected transfers.</p>`;
+  }
+}
+async function applyBatchEdit(){
+  if(!batchAction)return;
+  const btn=$('batch-apply-btn');btn.textContent='Applying…';btn.disabled=true;
+  const ids=[...(batchEditType==='sess'?batchSelSess:batchSelTrans)];
+  let error=null;
+  try{
+    if(batchEditType==='sess'){
+      if(batchAction==='venue'){
+        const v=$('be-venue').value.trim();if(!v){toast('Select a venue','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const{error:e}=await SB.from('sessions').update({venue:v}).in('id',ids);error=e;
+      } else if(batchAction==='add-format'){
+        const chips=document.querySelectorAll('#batch-input-area .fmt-chip[data-on="1"]');
+        const addFmts=[...chips].map(c=>c.dataset.fmt);
+        if(!addFmts.length){toast('Select at least one format','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const src=isAdmin?allSess:mySess;
+        for(const id of ids){
+          const s=src.find(x=>x.id===id);if(!s)continue;
+          const cur=new Set((s.game_type||'').split(',').map(f=>f.trim()).filter(Boolean));
+          addFmts.forEach(f=>cur.add(f));
+          const{error:e}=await SB.from('sessions').update({game_type:[...cur].join(', ')}).eq('id',id);
+          if(e){error=e;break;}
+        }
+      } else if(batchAction==='remove-format'){
+        const chips=document.querySelectorAll('#batch-input-area .fmt-chip[data-on="1"]');
+        const rmFmts=[...chips].map(c=>c.dataset.fmt);
+        if(!rmFmts.length){toast('Select at least one format','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const src=isAdmin?allSess:mySess;
+        for(const id of ids){
+          const s=src.find(x=>x.id===id);if(!s)continue;
+          const cur=new Set((s.game_type||'').split(',').map(f=>f.trim()).filter(Boolean));
+          rmFmts.forEach(f=>cur.delete(f));
+          const{error:e}=await SB.from('sessions').update({game_type:[...cur].join(', ')||null}).eq('id',id);
+          if(e){error=e;break;}
+        }
+      } else if(batchAction==='add-stake'){
+        const v=$('be-stake').value.trim();if(!v){toast('Select a stake','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const{error:e}=await SB.from('sessions').update({stake_level:v}).in('id',ids);error=e;
+      } else if(batchAction==='remove-stake'){
+        const{error:e}=await SB.from('sessions').update({stake_level:null}).in('id',ids);error=e;
+      }
+    } else {
+      if(batchAction==='sender'){
+        const v=$('be-sender').value.trim();if(!v){toast('Select a sender','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const{error:e}=await SB.from('transfers').update({sender:v}).in('id',ids);error=e;
+      } else if(batchAction==='receiver'){
+        const v=$('be-receiver').value.trim();if(!v){toast('Select a receiver','err');btn.textContent='Apply';btn.disabled=false;return;}
+        const{error:e}=await SB.from('transfers').update({receiver:v}).in('id',ids);error=e;
+      } else if(batchAction==='flip'){
+        const src=isAdmin?allTransfers:myTransfers;
+        for(const id of ids){
+          const t=src.find(x=>x.id===id);if(!t)continue;
+          const{error:e}=await SB.from('transfers').update({sender:t.receiver,receiver:t.sender}).eq('id',id);
+          if(e){error=e;break;}
+        }
+      }
+    }
+  }catch(ex){error={message:ex.message};}
+  btn.textContent='Apply';btn.disabled=false;
+  if(error){toast('Batch edit failed: '+error.message,'err');return;}
+  toast(`Updated ${ids.length} ${batchEditType==='sess'?'session':'transfer'}${ids.length>1?'s':''}`,'ok');
+  batchSelSess.clear();batchSelTrans.clear();
+  cov('batch-edit-overlay');
+  isAdmin?loadAdminData():loadStudData();
+}
+function toggleFmt(chip){const fmt=chip.dataset.fmt;if(selFmts.has(fmt)){selFmts.delete(fmt);chip.className='fmt-chip';}else{selFmts.add(fmt);chip.classList.add('on-'+fmt.toLowerCase());}}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+function renderBar(id,data,accentColor='var(--accent)',clickFn){
+  const el=$(id);if(!el)return;
+  const entries=Object.entries(data).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){el.innerHTML='<div style="color:var(--muted);font-size:11px;padding:.5rem 0;">No data yet</div>';return;}
+  const mx=Math.max(...entries.map(e=>Math.abs(e[1])),1);
+  el.innerHTML=entries.map(([lbl,val])=>{const pct=Math.abs(val)/mx*100,col=val>=0?accentColor:'var(--red)';return`<div class="bar-row"><div class="bar-lbl" title="${esc(lbl)}"${clickFn?` onclick="${clickFn}('${lbl}')" style="cursor:pointer;"`:''}>${lbl.length>11?lbl.slice(0,10)+'…':esc(lbl)}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col};opacity:.75;"></div></div><div class="bar-val">${val>=0?'+':''}${fm(val)}</div></div>`;}).join('');
+}
+function drawPnL(cid,sessions,lineColor='#4ade80'){
+  const canvas=$(cid);if(!canvas)return;
+  const sorted=[...sessions].sort((a,b)=>a.date<b.date?-1:1);
+  const W=canvas.offsetWidth||500,H=200;canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
+  if(sorted.length<2){ctx.fillStyle='rgba(74,222,128,0.3)';ctx.font='11px JetBrains Mono';ctx.textAlign='center';ctx.fillText('Log more sessions to see chart',W/2,H/2);return;}
+  let cum=0;const pts=sorted.map(s=>{cum+=+s.profit||0;return cum;});
+  const mn=Math.min(0,...pts),mx=Math.max(0,...pts),rng=mx-mn||1;
+  const p={t:14,b:14,l:6,r:6},iW=W-p.l-p.r,iH=H-p.t-p.b;
+  const tx=i=>p.l+(i/(pts.length-1))*iW,ty=v=>p.t+(1-(v-mn)/rng)*iH;
+  // Zero line
+  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(p.l,ty(0));ctx.lineTo(W-p.r,ty(0));ctx.stroke();ctx.setLineDash([]);
+  // Fill
+  ctx.beginPath();ctx.moveTo(tx(0),ty(pts[0]));for(let i=1;i<pts.length;i++)ctx.lineTo(tx(i),ty(pts[i]));
+  ctx.lineTo(tx(pts.length-1),H-p.b);ctx.lineTo(p.l,H-p.b);ctx.closePath();
+  const last=pts[pts.length-1];
+  ctx.fillStyle=last>=0?'rgba(74,222,128,0.18)':'rgba(240,80,80,0.18)';ctx.fill();
+  // Glow pass
+  ctx.beginPath();ctx.moveTo(tx(0),ty(pts[0]));for(let i=1;i<pts.length;i++)ctx.lineTo(tx(i),ty(pts[i]));
+  ctx.strokeStyle=last>=0?'rgba(74,222,128,0.35)':'rgba(240,80,80,0.35)';ctx.lineWidth=6;ctx.stroke();
+  // Main line
+  ctx.beginPath();ctx.moveTo(tx(0),ty(pts[0]));for(let i=1;i<pts.length;i++)ctx.lineTo(tx(i),ty(pts[i]));
+  ctx.strokeStyle=last>=0?lineColor:'#f05050';ctx.lineWidth=2.5;ctx.stroke();
+}
+
+// ── FILTER SYSTEM ─────────────────────────────────────────────────────────────
+function openFP(ctx){fpCtx=ctx;$('fp-type').value='';$('fp-sub').innerHTML='';$('fp-overlay').classList.add('open');}
+function closeFP(){$('fp-overlay').classList.remove('open');}
+function srcRowsFP(){return fpCtx==='student'?modeSess():fpCtx==='admin'?allSess:allTransfers;}
+function renderFPSub(){
+  const type=$('fp-type').value,sub=$('fp-sub'),src=srcRowsFP();
+  if(!type){sub.innerHTML='';return;}
+  if(type==='date'){
+    const months=new Map(),years=new Set();
+    src.forEach(s=>{if(!s.date)return;const dt=new Date(s.date+'T12:00:00'),key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;months.set(key,dt.toLocaleDateString('en-US',{month:'long',year:'numeric'}));years.add(dt.getFullYear());});
+    const ms=[...months.entries()].sort((a,b)=>b[0].localeCompare(a[0])),ys=[...years].sort((a,b)=>b-a);
+    sub.innerHTML=`<label class="fp-label">By Month</label><div class="fp-opts">${ms.map(([k,l])=>`<div class="fp-opt" data-t="date-month" data-v="${k}" data-l="${l}" onclick="this.classList.toggle('sel')">${l}</div>`).join('')}</div><label class="fp-label" style="margin-top:.75rem;">By Year</label><div class="fp-opts">${ys.map(y=>`<div class="fp-opt" data-t="date-year" data-v="${y}" data-l="${y}" onclick="this.classList.toggle('sel')">${y}</div>`).join('')}</div><label class="fp-label" style="margin-top:.75rem;">Custom Range</label><div class="fp-date-row"><input type="date" id="fp-from"><input type="date" id="fp-to"></div>`;
+  }else if(type==='venue'){const vs=[...new Set(src.map(s=>s.venue).filter(Boolean))].sort();sub.innerHTML=vs.length?`<label class="fp-label">Select Venues</label><div class="fp-opts">${vs.map(v=>`<div class="fp-opt" data-t="venue" data-v="${esc(v)}" data-l="${esc(v)}" onclick="this.classList.toggle('sel')">${esc(v)}</div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;">No venues logged yet</div>`;}
+  else if(type==='format'){sub.innerHTML=`<label class="fp-label">Select Formats</label><div class="fp-opts">${['NLH','PLO4','PLO5','Mixed','Other'].map(f=>`<div class="fp-opt" data-t="format" data-v="${f}" data-l="${f}" onclick="this.classList.toggle('sel')">${f}</div>`).join('')}</div>`;}
+  else if(type==='stake'){const ss=[...new Set(src.map(s=>s.stake_level).filter(Boolean))].sort();sub.innerHTML=ss.length?`<label class="fp-label">Select Stakes</label><div class="fp-opts">${ss.map(s=>`<div class="fp-opt" data-t="stake" data-v="${esc(s)}" data-l="${esc(s)}" onclick="this.classList.toggle('sel')">${esc(s)}</div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;">No stake levels logged yet</div>`;}
+  else if(type==='duration'){const bkts=[{l:'< 2h',v:'lt2'},{l:'2h–4h',v:'2to4'},{l:'4h–6h',v:'4to6'},{l:'6h–8h',v:'6to8'},{l:'> 8h',v:'gt8'}],avail=bkts.filter(b=>src.some(s=>{const h=parseDur(s.duration);return b.v==='lt2'?h>0&&h<2:b.v==='2to4'?h>=2&&h<4:b.v==='4to6'?h>=4&&h<6:b.v==='6to8'?h>=6&&h<8:h>=8;}));sub.innerHTML=avail.length?`<label class="fp-label">Select Duration</label><div class="fp-opts">${avail.map(b=>`<div class="fp-opt" data-t="duration" data-v="${b.v}" data-l="${b.l}" onclick="this.classList.toggle('sel')">${b.l}</div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;">No duration data yet</div>`;}
+}
+function applyFP(){
+  const type=$('fp-type').value;if(!type){closeFP();return;}
+  const af=fpCtx==='student'?activeFiltersS:fpCtx==='admin'?activeFiltersA:activeFiltersAT;
+  if(type==='date'){const from=$('fp-from')?.value,to=$('fp-to')?.value;if(from||to)af.push({t:'date-range',v:{from,to},l:`${from||'start'} → ${to||'end'}`});}
+  document.querySelectorAll('#fp-sub .fp-opt.sel').forEach(el=>af.push({t:el.dataset.t,v:el.dataset.v,l:el.dataset.l}));
+  closeFP();renderStudSessions();renderAllSess();renderAdminTransfers();
+}
+function removeFilter(ctx,idx){
+  const af=ctx==='student'?activeFiltersS:ctx==='admin'?activeFiltersA:activeFiltersAT;
+  af.splice(idx,1);renderStudSessions();renderAllSess();renderAdminTransfers();
+}
+function renderChips(chipsId,btnId,ctx){
+  const el=$(chipsId),btn=$(btnId);if(!el)return;
+  const af=ctx==='student'?activeFiltersS:ctx==='admin'?activeFiltersA:activeFiltersAT;
+  el.innerHTML=af.map((f,i)=>`<span class="filter-chip">${f.l}<button onclick="removeFilter('${ctx}',${i})">×</button></span>`).join('');
+  if(btn)btn.className='filter-btn'+(af.length?' active':'');
+}
+function applyFilters(rows,af){
+  if(!af||!af.length)return rows;
+  return rows.filter(s=>af.every(f=>{
+    if(f.t==='date-month'){if(!s.date)return false;const dt=new Date(s.date+'T12:00:00');return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`===f.v;}
+    if(f.t==='date-year')return s.date&&new Date(s.date+'T12:00:00').getFullYear()===parseInt(f.v);
+    if(f.t==='date-range'){if(!s.date)return false;if(f.v.from&&s.date<f.v.from)return false;if(f.v.to&&s.date>f.v.to)return false;return true;}
+    if(f.t==='venue')return(s.venue||'')===f.v;
+    if(f.t==='format')return(s.game_type||'').split(',').map(x=>x.trim()).includes(f.v);
+    if(f.t==='stake')return(s.stake_level||'')===f.v;
+    if(f.t==='duration'){const h=parseDur(s.duration);return f.v==='lt2'?h>0&&h<2:f.v==='2to4'?h>=2&&h<4:f.v==='4to6'?h>=4&&h<6:f.v==='6to8'?h>=6&&h<8:h>=8;}
+    return true;
+  }));
+}
+
+// ── SHARED SORT ───────────────────────────────────────────────────────────────
+function sortRows(rows,srt,sm={}){
+  const{col,dir}=srt;
+  return[...rows].sort((a,b)=>{
+    let av,bv;
+    switch(col){
+      case 'student':av=sm[a.student_id]||'';bv=sm[b.student_id]||'';break;
+      case 'type':av=a.play_type||'';bv=b.play_type||'';break;
+      case 'date':av=a.date||'';bv=b.date||'';break;
+      case 'venue':av=a.venue||'';bv=b.venue||'';break;
+      case 'format':av=a.game_type||'';bv=b.game_type||'';break;
+      case 'stakes':av=a.stake_level||'';bv=b.stake_level||'';break;
+      case 'buy_in':av=+a.buy_in||0;bv=+b.buy_in||0;break;
+      case 'cash_out':av=+a.cash_out||0;bv=+b.cash_out||0;break;
+      case 'profit':av=+a.profit||0;bv=+b.profit||0;break;
+      case 'duration':av=parseDur(a.duration);bv=parseDur(b.duration);break;
+      default:return 0;
+    }
+    if(av<bv)return dir==='asc'?-1:1;if(av>bv)return dir==='asc'?1:-1;return 0;
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+// ── STAKE COLORS ─────────────────────────────────────────────────────────────
+const ONLINE_STAKES=['10NL','25NL','50NL','100NL','200NL','500NL','1KNL','2KNL','5KNL'];
+const ONLINE_STAKE_CLS={'10NL':'b-sk-10nl','25NL':'b-sk-25nl','50NL':'b-sk-50nl','100NL':'b-sk-100nl','200NL':'b-sk-200nl','500NL':'b-sk-500nl','1KNL':'b-sk-1knl','2KNL':'b-sk-2knl','5KNL':'b-sk-5knl'};
+function stakeVal(sk){
+  const s=(sk||'').trim().toUpperCase();
+  const k=s.match(/^(\d+(?:\.\d+)?)K(?:NL)?/i);if(k)return parseFloat(k[1])*1000;
+  const nl=s.match(/^(\d+(?:\.\d+)?)\s*NL/i);if(nl)return parseFloat(nl[1]);
+  const sl=s.match(/[\d.]+\s*\/\s*([\d.]+)/);if(sl)return parseFloat(sl[1])*2;
+  const n=parseFloat(s);return isNaN(n)?0:n;
+}
+const LIVE_STAKE_CLS={
+  '1/2':'b-sk-live-1-2','1/3':'b-sk-live-1-3','2/3':'b-sk-live-2-3',
+  '2/5':'b-sk-live-2-5','3/5':'b-sk-live-3-5','5/5':'b-sk-live-5-5',
+  '5/10':'b-sk-live-5-10','10/20':'b-sk-live-10-20','10/25':'b-sk-live-10-25',
+  '25/50':'b-sk-live-25-50','50/100':'b-sk-live-50-100',
+};
+const ONLINE_TIERS=[10,25,50,100,200,500,1000,2000,5000];
+const ONLINE_TIER_LABELS={10:'10NL',25:'25NL',50:'50NL',100:'100NL',200:'200NL',500:'500NL',1000:'1KNL',2000:'2KNL',5000:'5KNL'};
+function nearestOnlineTier(nlVal){
+  let best=ONLINE_TIERS[0],bestDist=Math.abs(nlVal-best);
+  for(const t of ONLINE_TIERS){const d=Math.abs(nlVal-t);if(d<bestDist){bestDist=d;best=t;}}
+  return best;
+}
+function normalizeOnlineStake(sk){
+  const s=(sk||'').trim().toUpperCase();
+  if(ONLINE_STAKE_CLS[s])return s;
+  // Handle "25/30NL" format — extract the first number as the NL value
+  const slashNl=s.match(/^(\d+)\s*\/\s*\d+\s*NL$/i);
+  if(slashNl){const v=parseFloat(slashNl[1]);return ONLINE_TIER_LABELS[nearestOnlineTier(v)]||s;}
+  // Check if it looks like an online stake (ends in NL or KNL)
+  const k=s.match(/^(\d+(?:\.\d+)?)K(?:NL)?$/i);
+  const nl=s.match(/^(\d+(?:\.\d+)?)\s*NL$/i);
+  if(k){const v=parseFloat(k[1])*1000;return ONLINE_TIER_LABELS[nearestOnlineTier(v)]||s;}
+  if(nl){const v=parseFloat(nl[1]);return ONLINE_TIER_LABELS[nearestOnlineTier(v)]||s;}
+  return sk;
+}
+function isOnlineStake(sk){
+  const s=(sk||'').trim().toUpperCase();
+  return /NL$/i.test(s)||/^\d+K$/i.test(s);
+}
+const NL_TO_LIVE={'10NL':'1/2','25NL':'1/2','50NL':'1/2','100NL':'1/2','200NL':'1/2','300NL':'1/3','500NL':'2/5','1KNL':'5/5','2KNL':'5/10','5KNL':'25/50'};
+function nlToLiveStake(sk){
+  const norm=normalizeOnlineStake(sk);
+  if(NL_TO_LIVE[norm])return NL_TO_LIVE[norm];
+  // Parse the NL value and estimate
+  const v=stakeVal(sk);
+  if(v<=200)return'1/2';
+  if(v<=300)return'1/3';
+  if(v<=400)return'2/3';
+  if(v<=500)return'2/5';
+  if(v<=1000)return'5/5';
+  if(v<=2000)return'5/10';
+  if(v<=5000)return'25/50';
+  return'50/100';
+}
+function skCls(sk){
+  const key=(sk||'').trim().toUpperCase();
+  if(ONLINE_STAKE_CLS[key])return ONLINE_STAKE_CLS[key];
+  // Try normalizing online stake
+  const normalized=normalizeOnlineStake(sk);
+  if(ONLINE_STAKE_CLS[normalized])return ONLINE_STAKE_CLS[normalized];
+  // live stakes — exact match first
+  const norm=(sk||'').trim().replace(/\s/g,'');
+  if(LIVE_STAKE_CLS[norm])return LIVE_STAKE_CLS[norm];
+  // fallback by bb value
+  const v=stakeVal(sk);
+  if(v<=10)return'b-sk-live-1-2';
+  if(v<=20)return'b-sk-live-5-10';
+  if(v<=50)return'b-sk-live-high';
+  return'b-sk-live-nosebleed';
+}
+function stakesBadges(stakeLevel,playType){
+  if(!stakeLevel||stakeLevel==='—')return'—';
+  try{
+    const parts=stakeLevel.split(',').map(s=>s.trim()).filter(Boolean);
+    const sorted=[...parts].sort((a,b)=>stakeVal(b)-stakeVal(a));
+    return sorted.map(s=>{
+      let display=s;
+      if(playType==='live'&&isOnlineStake(s)){display=nlToLiveStake(s);}
+      else if(isOnlineStake(s)){display=normalizeOnlineStake(s);}
+      const cls=playType==='live'?skCls(display):skCls(s);
+      return`<span class="bdg ${cls}">${display}</span>`;
+    }).join(' ');
+  }catch(e){return`<span class="bdg">${stakeLevel}</span>`;}
+}
+function sessRow(s,showStud,sm,showType){
+  const profit=+s.profit||0,fmts=(s.game_type||'').split(',').map(f=>f.trim()).filter(Boolean);
+  const pc=profit>0?'pp':profit<0?'pn':'',ps=(profit>=0?'+':'')+fm(profit);
+  const durCell=s.play_type==='online'?(s.hands_played?`${parseInt(s.hands_played).toLocaleString()} hands`:'—'):(s.duration!=null?s.duration+'h':'—');
+  const sel=batchSelSess.has(s.id);
+  return`<tr class="${sel?'batch-sel':''}">
+    <td><input type="checkbox" class="batch-cb" ${sel?'checked':''} onchange="toggleBatchSel('sess','${s.id}',this)"></td>
+    ${showStud?`<td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${s.student_id}')">${esc(sm[s.student_id]||s.student_id)}</td>`:''}
+    ${showType?`<td><span class="bdg ${s.play_type==='live'?'b-live':'b-online'}">${s.play_type}</span></td>`:''}
+    <td style="color:var(--muted);font-size:11px;">${fmtDate(s.date)}</td>
+    <td style="font-weight:500;">${esc(s.venue)}</td>
+    <td>${fmts.map(f=>`<span class="bdg ${bCls(f)}">${f}</span>`).join(' ')||'—'}</td>
+    <td style="white-space:nowrap;">${stakesBadges(s.stake_level,s.play_type)}</td>
+    <td>${fm(s.buy_in)}</td><td>${fm(s.cash_out)}</td>
+    <td class="${pc}" style="font-weight:500;">${ps}</td>
+    <td style="color:var(--muted2);">${durCell}</td>
+    <td style="display:flex;gap:3px;"><button class="ib" onclick="editSess('${s.id}')">✎</button><button class="ib del" onclick="delSess('${s.id}')">✕</button></td>
+  </tr>`;
+}
+function calcRes(){const b=parseFloat($('f-buyin').value)||0,c=parseFloat($('f-cashout').value)||0,p=c-b,el=$('f-result');el.value=p!==0?(p>0?'+':'')+'$'+Math.abs(p):'—';el.style.color=p>0?'var(--accent)':p<0?'var(--red)':'var(--muted2)';}
+function groupBy(arr,fn){const m={};arr.forEach(x=>{const k=fn(x);m[k]=(m[k]||0)+(+x.profit||0);});return m;}
+function sum(arr,k){return arr.reduce((a,x)=>a+(+x[k]||0),0);}
+function parseSplitsRaw(s){try{return typeof s==='string'?JSON.parse(s||'[]'):s||[];}catch{return[];}}
+function normalizeTiers(arr){
+  try{
+    if(!Array.isArray(arr)||!arr.length)return[];
+    // Already in min/max/pct format
+    if(arr[0].min!==undefined&&arr[0].pct!==undefined)return arr;
+    // Convert threshold/student_pct format to min/max/pct
+    const sorted=[...arr].sort((a,b)=>(a.threshold??Infinity)-(b.threshold??Infinity));
+    let prev=0;
+    return sorted.map(t=>{
+      const row={min:prev,max:t.threshold??null,pct:t.student_pct??50};
+      prev=t.threshold??prev;
+      return row;
+    });
+  }catch(e){console.error('normalizeTiers error',e,arr);return[];}
+}
+function parseSplits(s,playType){
+  try{
+    const raw=parseSplitsRaw(s);
+    // Handle "both" contracts: {live:[...], online:[...]}
+    if(!Array.isArray(raw)&&typeof raw==='object'&&raw!==null){
+      if(playType&&raw[playType])return normalizeTiers(raw[playType]);
+      if(raw.live)return normalizeTiers(raw.live);
+      if(raw.online)return normalizeTiers(raw.online);
+      return[];
+    }
+    return normalizeTiers(raw);
+  }catch(e){console.error('parseSplits error',e,s);return[];}
+}
+function parseDur(d){if(!d)return 0;const hm=String(d).match(/(\d+(?:\.\d+)?)h(?:(\d+)m)?/i);if(hm)return parseFloat(hm[1])+(parseInt(hm[2]||0)/60);const n=parseFloat(d);return isNaN(n)?0:n;}
+function fm(n){const v=parseFloat(n)||0,a=Math.abs(v),s=a>=10000?'$'+(a/1000).toFixed(1)+'k':'$'+a.toFixed(0);return v<0?'-'+s:s;}
+function fmtDate(d){if(!d)return'—';const dt=new Date(d+'T12:00:00');return(dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2);}
+function bCls(f){const lc=(f||'').trim().toLowerCase();return lc==='nlh'?'b-nlh':lc==='plo4'?'b-plo4':lc==='plo5'?'b-plo5':lc.includes('mix')?'b-mix':'b-oth';}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function emptyHtml(icon,msg){return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-msg">${msg}</div></div>`;}
+function parseBB(s){if(!s)return null;const t=s.trim(),nl=t.match(/^(\d+(?:\.\d+)?)\s*nl$/i)||t.match(/^nl\s*(\d+(?:\.\d+)?)$/i);if(nl)return parseFloat(nl[1])/100;const sl=t.match(/[\d.]+\s*\/\s*([\d.]+)/);return sl?parseFloat(sl[1]):null;}
+function calcBB100(sessions){let ws=0,th=0;for(const s of sessions){const bb=parseBB(s.stake_level),h=parseInt(s.hands_played)||0;if(bb&&h&&bb>0){ws+=(+s.profit||0)/bb;th+=h;}}return th===0?null:(ws/th)*100;}
+function toast(msg,type='ok'){const t=$('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),2800);}
+</script>
+</body>
+</html>
