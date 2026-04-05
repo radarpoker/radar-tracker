@@ -2180,24 +2180,19 @@ function toggleCdd(triggerId,menuId){
   const wrap=trigger.closest('.cdd-wrap');
   if(menu.style.display==='none'){
     if(_openCdd&&_openCdd!==wrap){closeCdd(_openCdd);}
-    // Position menu with fixed positioning if inside a modal/overlay to avoid clipping
-    const inModal=trigger.closest('.modal,.fp-box,#batch-input-area');
-    if(inModal){
-      const rect=trigger.getBoundingClientRect();
-      menu.style.position='fixed';
-      menu.style.top=(rect.bottom+4)+'px';
-      menu.style.left=rect.left+'px';
-      menu.style.width=rect.width+'px';
-      menu.style.zIndex='9000';
-    }
-    menu.style.display='block';trigger.classList.add('open');_openCdd=wrap;
+    // Temporarily allow overflow on scrollable ancestors so dropdown isn't clipped
+    const scrollParent=trigger.closest('.modal,.fp-box');
+    if(scrollParent)scrollParent.style.overflow='visible';
+    menu.style.display='block';trigger.classList.add('open');_openCdd=wrap;_openCddScrollParent=scrollParent;
   } else {closeCdd(wrap);}
 }
+let _openCddScrollParent=null;
 function closeCdd(wrap){
   if(!wrap)return;
   const menu=wrap.querySelector('.cdd-menu');const trigger=wrap.querySelector('.cdd-trigger');
-  if(menu){menu.style.display='none';menu.style.position='';menu.style.top='';menu.style.left='';menu.style.width='';menu.style.zIndex='';}
+  if(menu)menu.style.display='none';
   if(trigger)trigger.classList.remove('open');
+  if(_openCddScrollParent){_openCddScrollParent.style.overflow='';_openCddScrollParent=null;}
   if(_openCdd===wrap)_openCdd=null;
 }
 function setCdd(hiddenId,value,label,optEl){
