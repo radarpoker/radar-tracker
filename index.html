@@ -843,7 +843,15 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     </div>
     <div class="fr">
       <div class="fld"><label>Amount ($)</label><input type="number" id="t-amount" placeholder="0" min="0"></div>
-      <div class="fld" id="t-dest-wrap"><label>Destination / Notes</label><input type="text" id="t-dest" placeholder="Bank, crypto, etc."></div>
+      <div class="fld" id="t-dest-wrap"><label>Destination</label>
+        <div class="cdd-wrap">
+          <button class="cdd-trigger" id="t-dest-cdd" onclick="toggleCdd('t-dest-cdd','t-dest-menu')">
+            <span id="t-dest-label" style="color:var(--muted2);">Select destination…</span><span class="cdd-arrow">▾</span>
+          </button>
+          <div class="cdd-menu" id="t-dest-menu" style="display:none;"></div>
+        </div>
+        <input type="hidden" id="t-dest">
+      </div>
     </div>
 
     <!-- Split-specific fields -->
@@ -1488,6 +1496,11 @@ async function loadAdminData(){
   const partyOpts=allParties.map(p=>({value:p.name,label:p.name}));
   const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-sender','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
   const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${it.value}','${it.label}',this)">${esc(it.label)}</div>`).join('');
+  // Destination dropdown: venues from all sessions + staker names + common destinations
+  const destVenues=[...new Set(allSess.map(s=>s.venue).filter(Boolean))].sort();
+  const destStakers=allStakers.map(s=>s.name);
+  const destOpts=[...new Set([...destVenues,...destStakers,'Bank','Crypto'])];
+  const destm=$('t-dest-menu');if(destm)destm.innerHTML=destOpts.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
 
   try{renderStudentsTab();}catch(e){console.error('renderStudentsTab',e);}
   try{renderAllSess();}catch(e){console.error('renderAllSess',e);}
@@ -2071,10 +2084,15 @@ function openTransferModal(){
   const partyOptsR=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('');
   const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts;
   const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOptsR;
-  // reset sender/receiver labels
+  // Destination dropdown: venues + stakers + common destinations
+  const destVenues=[...new Set(source.map(s=>s.venue).filter(Boolean))].sort();
+  const destAll=[...new Set([...destVenues,...backerNames,'Bank','Crypto'])];
+  const destm=$('t-dest-menu');if(destm)destm.innerHTML=destAll.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+  // reset sender/receiver/dest labels
   const sl=$('t-sender-label');if(sl){sl.textContent='Select…';sl.style.color='var(--muted2)';}
   const rl=$('t-receiver-label');if(rl){rl.textContent='Select…';rl.style.color='var(--muted2)';}
-  $('t-sender').value='';$('t-receiver').value='';
+  const dl=$('t-dest-label');if(dl){dl.textContent='Select destination…';dl.style.color='var(--muted2)';}
+  $('t-sender').value='';$('t-receiver').value='';$('t-dest').value='';
 
   // Student dropdown
   if(isAdmin){
@@ -2133,9 +2151,14 @@ async function saveTransfer(){
   const sender=$('t-sender').value,receiver=$('t-receiver').value;
   if(!date||!sender||!receiver){toast('Date, sender and receiver required','err');return;}
   const sid=isAdmin?$('t-student').value:(me?me.id:null);
+  const dest=$('t-dest').value.trim();
+  const userNotes=$('t-notes').value.trim();
+  const noteParts=[];
+  if(dest)noteParts.push(`Dest: ${dest}`);
+  if(userNotes)noteParts.push(userNotes);
   const row={
     type:curTransferType,student_id:sid||null,date,sender,receiver,amount,
-    notes:$('t-notes').value.trim()||null,
+    notes:noteParts.join(' | ')||null,
     ...(curTransferType==='split'?{split_month:$('t-split-month').value,student_cut:parseFloat($('t-stud-cut').value)||null,staker_cut:parseFloat($('t-stak-cut').value)||null}:{})
   };
   const btn=$('transfer-save-btn');btn.textContent='Saving…';btn.disabled=true;
