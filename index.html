@@ -308,6 +308,10 @@ tr.split-row{box-shadow:0 0 0 1px rgba(74,222,128,.45),0 0 8px rgba(74,222,128,.
 .batch-cb:checked{background:var(--accent)}
 .batch-cb:checked::after{content:'✓';position:absolute;top:-1px;left:2px;font-size:11px;color:#000;font-weight:700}
 .batch-cb:hover{border-color:var(--accent);box-shadow:0 0 4px rgba(74,222,128,.3)}
+.fmt-add{border-style:dashed!important;color:var(--muted)!important;font-size:15px!important;min-width:28px;display:flex;align-items:center;justify-content:center}
+.fmt-add:hover{border-color:var(--accent)!important;color:var(--accent)!important}
+.fmt-custom-x{margin-left:2px;font-size:10px;opacity:.5;cursor:pointer}
+.fmt-custom-x:hover{opacity:1;color:var(--red)}
 .batch-bar{display:none;align-items:center;gap:10px;margin-bottom:8px}
 .batch-bar.show{display:flex}
 .batch-bar .btn-batch{background:var(--accent);color:#000;font-weight:700;padding:6px 14px;border:none;border-radius:var(--r);cursor:pointer;font-family:var(--mono);font-size:13px;transition:opacity .12s}
@@ -643,12 +647,13 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     </div>
     <div class="fr" style="margin-bottom:9px;">
       <div class="fld"><label>Game Format(s)</label>
-        <div class="fmt-chips">
+        <div class="fmt-chips" id="fmt-chips-container">
           <div class="fmt-chip" data-fmt="NLH" onclick="toggleFmt(this)">NLH</div>
           <div class="fmt-chip" data-fmt="PLO4" onclick="toggleFmt(this)">PLO4</div>
           <div class="fmt-chip" data-fmt="PLO5" onclick="toggleFmt(this)">PLO5</div>
           <div class="fmt-chip" data-fmt="Mixed" onclick="toggleFmt(this)">Mixed</div>
-          <div class="fmt-chip" data-fmt="Other" onclick="toggleFmt(this)">Other</div>
+          <!-- custom formats inserted here by JS -->
+          <div class="fmt-chip fmt-add" onclick="addCustomFormat()" title="Add custom format">+</div>
         </div>
       </div>
       <div class="fld"><label>Stake Level</label>
@@ -964,7 +969,7 @@ const ADMIN_PIN='65591';
 let SB=null;
 let me=null,isAdmin=false;
 let allStuds=[],allSess=[],allContracts=[],allStakers=[],allTransfers=[],allParties=[],allBankroll=[];
-let mySess=[],myContracts=[],myTransfers=[],myVenues=[],myStakes=[];
+let mySess=[],myContracts=[],myTransfers=[],myVenues=[],myStakes=[],myFormats=[];
 let editSessId=null,editStudId=null,editContractId=null,editStakerId=null,editTransferId=null;
 let selFmts=new Set();
 let batchSelSess=new Set(),batchSelTrans=new Set(),batchEditType='',batchAction='',batchVisibleSessIds=[],batchVisibleTransIds=[];
@@ -996,7 +1001,7 @@ function showLogin(){
   $('mode-admin-btn').style.cssText='flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;';
   $('login-screen').style.display='flex';
 }
-function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];mySess=[];myContracts=[];myTransfers=[];myVenues=[];myStakes=[];showLogin();}
+function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];mySess=[];myContracts=[];myTransfers=[];myVenues=[];myStakes=[];myFormats=[];showLogin();}
 function setLoginMode(mode){
   loginMode=mode;idEntry='';pinEntry='';$('login-err').textContent='';
   const player=mode==='player';
@@ -1078,13 +1083,15 @@ async function loadStudData(){
   const prefs=JSON.parse(localStorage.getItem(prefsKey)||'{}');
   myVenues=prefs.venues||[];
   myStakes=prefs.stakes||[];
+  myFormats=prefs.formats||[];
   populateSessionDataLists();
+  renderCustomFormatChips();
   renderStudSessions();
 }
 
 function saveStudPrefs(){
   const prefsKey=`rp_prefs_${me.id}`;
-  localStorage.setItem(prefsKey,JSON.stringify({venues:myVenues,stakes:myStakes}));
+  localStorage.setItem(prefsKey,JSON.stringify({venues:myVenues,stakes:myStakes,formats:myFormats||[]}));
   populateSessionDataLists();
 }
 
@@ -1798,7 +1805,7 @@ function openStakerInfo(skid){
 // ── SESSION CRUD ──────────────────────────────────────────────────────────────
 function openSessModal(){
   editSessId=null;selFmts.clear();resetSessForm();
-  populateSessionDataLists();
+  populateSessionDataLists();renderCustomFormatChips();
   $('sess-modal-title').textContent='Log Session';$('adm-stud-row').style.display='none';$('stud-type-row').style.display='block';
   const dot=$('sess-type-dot'),lbl=$('sess-type-label');
   if(curMode==='live'){dot.style.background='var(--live)';lbl.textContent='Live';}
@@ -1834,7 +1841,7 @@ function updateAdmPlayTypeOpts(sid){
 }
 function editSess(id){
   const s=isAdmin?allSess.find(x=>x.id===id):mySess.find(x=>x.id===id);if(!s)return;
-  editSessId=id;resetSessForm();populateSessionDataLists();
+  editSessId=id;resetSessForm();populateSessionDataLists();renderCustomFormatChips();
   $('sess-modal-title').textContent='Edit Session';
   $('f-date').value=s.date;
   // set venue cdd
@@ -1858,7 +1865,8 @@ function editSess(id){
   }
   $('f-buyin').value=s.buy_in||'';$('f-cashout').value=s.cash_out||'';$('f-dur').value=s.duration||'';$('f-hands').value=s.hands_played||'';
   selFmts=new Set((s.game_type||'').split(',').map(f=>f.trim()).filter(Boolean));
-  document.querySelectorAll('.fmt-chip').forEach(c=>{c.className='fmt-chip';if(selFmts.has(c.dataset.fmt))c.classList.add('on-'+c.dataset.fmt.toLowerCase());});
+  renderCustomFormatChips();
+  document.querySelectorAll('.fmt-chip').forEach(c=>{if(c.classList.contains('fmt-add'))return;const isCustom=c.classList.contains('fmt-chip-custom');c.className='fmt-chip'+(isCustom?' fmt-chip-custom':'');if(selFmts.has(c.dataset.fmt))c.classList.add('on-'+(isCustom?'other':c.dataset.fmt.toLowerCase()));});
   if(isAdmin){
     $('adm-stud-row').style.display='block';$('stud-type-row').style.display='none';
     const fsm=$('f-stud-sel-menu');
@@ -2332,6 +2340,44 @@ async function applyBatchEdit(){
   isAdmin?loadAdminData():loadStudData();
 }
 function toggleFmt(chip){const fmt=chip.dataset.fmt;if(selFmts.has(fmt)){selFmts.delete(fmt);chip.className='fmt-chip';}else{selFmts.add(fmt);chip.classList.add('on-'+fmt.toLowerCase());}}
+function renderCustomFormatChips(){
+  const container=$('fmt-chips-container');if(!container)return;
+  // Remove old custom chips
+  container.querySelectorAll('.fmt-chip-custom').forEach(c=>c.remove());
+  // Also gather custom formats from session history
+  const builtIn=new Set(['NLH','PLO4','PLO5','Mixed','Other']);
+  const historyFmts=[...new Set((isAdmin?allSess:mySess).flatMap(s=>(s.game_type||'').split(',').map(f=>f.trim())).filter(f=>f&&!builtIn.has(f)))];
+  const allCustom=[...new Set([...(myFormats||[]),...historyFmts])];
+  const addBtn=container.querySelector('.fmt-add');
+  allCustom.forEach(fmt=>{
+    const chip=document.createElement('div');
+    chip.className='fmt-chip fmt-chip-custom'+(selFmts.has(fmt)?' on-other':'');
+    chip.dataset.fmt=fmt;
+    chip.onclick=function(){toggleFmt(this);};
+    chip.innerHTML=esc(fmt)+`<span class="fmt-custom-x" onclick="event.stopPropagation();removeCustomFormat('${fmt.replace(/'/g,"\\'")}')" title="Remove">×</span>`;
+    container.insertBefore(chip,addBtn);
+  });
+}
+function addCustomFormat(){
+  const name=prompt('Enter custom format name:');
+  if(!name||!name.trim())return;
+  const fmt=name.trim();
+  const builtIn=['NLH','PLO4','PLO5','Mixed','Other'];
+  if(builtIn.includes(fmt)){toast('That format already exists','err');return;}
+  if(!myFormats)myFormats=[];
+  if(!myFormats.includes(fmt))myFormats.push(fmt);
+  saveStudPrefs();
+  renderCustomFormatChips();
+  // Auto-select the new format
+  const chip=$('fmt-chips-container').querySelector(`.fmt-chip-custom[data-fmt="${fmt}"]`);
+  if(chip&&!selFmts.has(fmt))toggleFmt(chip);
+}
+function removeCustomFormat(fmt){
+  myFormats=(myFormats||[]).filter(f=>f!==fmt);
+  selFmts.delete(fmt);
+  saveStudPrefs();
+  renderCustomFormatChips();
+}
 
 // ── CHARTS ────────────────────────────────────────────────────────────────────
 function renderBar(id,data,accentColor='var(--accent)',clickFn){
