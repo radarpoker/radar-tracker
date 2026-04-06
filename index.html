@@ -299,6 +299,7 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .amt-in{color:var(--accent);font-family:var(--mono)}
 .amt-out{color:var(--red);font-family:var(--mono)}
 .amt-neu{color:var(--text);font-family:var(--mono)}
+.amt-move{color:var(--orange);font-family:var(--mono)}
 tr.split-row{box-shadow:0 0 0 1px rgba(74,222,128,.45),0 0 8px rgba(74,222,128,.18);outline:1px solid rgba(74,222,128,.35)}
 .ib{background:none;border:1px solid transparent;border-radius:3px;color:var(--muted);cursor:pointer;padding:3px 5px;font-size:13px;transition:all .12s;font-family:var(--mono)}
 .ib:hover{color:var(--text);border-color:var(--border2);background:var(--s3)}
@@ -342,6 +343,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
 .cdd-opt:hover{background:var(--s2);color:var(--text)}
 .cdd-opt.selected{color:var(--accent);background:var(--accent-dim)}
 .cdd-opt .cdd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cdd-hdr{padding:6px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-family:var(--mono);cursor:default;user-select:none;border-bottom:1px solid var(--border)}
 /* small variant for filter bars */
 .cdd-trigger.sm{font-size:13px;padding:5px 8px}
 .cdd-menu.sm .cdd-opt{padding:7px 10px;font-size:13px}
@@ -411,6 +413,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <button class="tab-btn" onclick="sSubTab('analytics',this)">Analytics</button>
     <button class="tab-btn" onclick="sSubTab('contract',this)">Contract</button>
     <button class="tab-btn" onclick="sSubTab('transfers',this)">Transfers</button>
+    <button class="tab-btn" onclick="sSubTab('expenses',this)">Expenses</button>
     <button class="tab-btn" onclick="sSubTab('options',this)">Options</button>
   </div>
   <div class="page">
@@ -466,6 +469,15 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
         <div id="s-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
       </div>
     </div>
+    <div class="tab-pane" id="s-tab-expenses">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">Expenses</div>
+          <button class="btn btn-p btn-sm" onclick="openExpenseModal()">+ New Expense</button>
+        </div>
+        <div id="s-expenses-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
     <div class="tab-pane" id="s-tab-options">
       <!-- LIVE Section -->
       <div class="section-label" style="margin-bottom:.5rem"><span class="dot" style="background:var(--live)"></span>Live</div>
@@ -511,6 +523,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <button class="tab-btn" onclick="aTab('analytics',this)">Analytics</button>
     <button class="tab-btn" onclick="aTab('transfers',this)">Transfers</button>
     <button class="tab-btn" onclick="aTab('roster',this)">Roster</button>
+    <button class="tab-btn" onclick="aTab('expenses',this)">Expenses</button>
     <button class="tab-btn" onclick="aTab('settings',this)">Settings</button>
   </div>
   <div class="page">
@@ -597,6 +610,22 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <!-- ROSTER TAB -->
     <div class="tab-pane" id="a-tab-roster">
       <div class="stud-grid" id="a-stud-grid"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>
+
+    <!-- EXPENSES TAB -->
+    <div class="tab-pane" id="a-tab-expenses">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">All Expenses</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-estud-cdd" onclick="toggleCdd('a-flt-estud-cdd','a-flt-estud-menu')"><span id="a-flt-estud-label">All students</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-estud-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-estud','','All students',this);renderAdminExpenses()">All students</div></div></div>
+            <input type="hidden" id="a-flt-estud">
+            <button class="btn btn-p btn-sm" onclick="openExpenseModal()">+ New Expense</button>
+          </div>
+        </div>
+        <div id="a-expenses-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
     </div>
 
     <!-- SETTINGS TAB -->
@@ -876,6 +905,36 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
   </div>
 </div>
 
+<!-- ══ EXPENSE MODAL ══ -->
+<div class="overlay" id="expense-overlay" onclick="oout(event,'expense-overlay')">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-hd"><h3 id="expense-modal-title">New Expense</h3><button class="mclose" onclick="cov('expense-overlay')">×</button></div>
+    <div class="fr" id="e-stud-wrap" style="display:none;">
+      <div class="fld"><label>Student</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="e-student-cdd" onclick="toggleCdd('e-student-cdd','e-student-menu')"><span id="e-student-label" style="color:var(--muted2);">Select student…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="e-student-menu" style="display:none;"></div></div>
+        <input type="hidden" id="e-student">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Amount ($)</label><input type="number" id="e-amount" placeholder="0" min="0"></div>
+      <div class="fld" id="e-status-wrap" style="display:none;"><label>Status</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="e-status-cdd" onclick="toggleCdd('e-status-cdd','e-status-menu')"><span id="e-status-label">Pending</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="e-status-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('e-status','pending','Pending',this)">Pending</div>
+          <div class="cdd-opt" onclick="setCdd('e-status','paid','Paid',this)">Paid</div>
+        </div></div>
+        <input type="hidden" id="e-status" value="pending">
+      </div>
+    </div>
+    <div class="fr one"><div class="fld"><label>Notes</label><textarea id="e-notes" placeholder="e.g. PokerTracker 4 license…" style="min-height:50px;"></textarea></div></div>
+    <div class="form-footer">
+      <button class="btn btn-g" onclick="cov('expense-overlay')">Cancel</button>
+      <button class="btn btn-p" id="expense-save-btn" onclick="saveExpense()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ STUDENT INFO MODAL ══ -->
 <div class="overlay" id="info-overlay" onclick="oout(event,'info-overlay')">
   <div class="modal" style="max-width:700px;">
@@ -983,7 +1042,8 @@ let SB=null;
 let me=null,isAdmin=false;
 let allStuds=[],allSess=[],allContracts=[],allStakers=[],allTransfers=[],allParties=[],allBankroll=[];
 let mySess=[],myContracts=[],myTransfers=[],myVenues=[],myStakes=[],myFormats=[];
-let editSessId=null,editStudId=null,editContractId=null,editStakerId=null,editTransferId=null;
+let allExpenses=[],myExpenses=[];
+let editSessId=null,editStudId=null,editContractId=null,editStakerId=null,editTransferId=null,editExpenseId=null;
 let selFmts=new Set();
 let batchSelSess=new Set(),batchSelTrans=new Set(),batchEditType='',batchAction='',batchVisibleSessIds=[],batchVisibleTransIds=[];
 let curMode='live',loginMode='player';
@@ -1015,7 +1075,7 @@ function showLogin(){
   $('mode-admin-btn').style.cssText='flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;';
   $('login-screen').style.display='flex';
 }
-function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];mySess=[];myContracts=[];myTransfers=[];myVenues=[];myStakes=[];myFormats=[];showLogin();}
+function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];allExpenses=[];mySess=[];myContracts=[];myTransfers=[];myExpenses=[];myVenues=[];myStakes=[];myFormats=[];showLogin();}
 function setLoginMode(mode){
   loginMode=mode;idEntry='';pinEntry='';$('login-err').textContent='';
   const player=mode==='player';
@@ -1078,6 +1138,7 @@ function renderStudForMode(n){
   else if(n==='analytics'){renderStudStats();renderStudAnalytics();}
   else if(n==='contract')renderStudContract();
   else if(n==='transfers')renderStudTransfers();
+  else if(n==='expenses')renderStudExpenses();
   else if(n==='options')renderStudOptions();
 }
 function modeSess(){return curMode==='both'?mySess:mySess.filter(s=>s.play_type===curMode);}
@@ -1085,13 +1146,14 @@ function sSubTab(name,btn){document.querySelectorAll('#student-app .tab-pane').f
 
 // ── STUDENT DATA ──────────────────────────────────────────────────────────────
 async function loadStudData(){
-  const[{data:sess},{data:contracts},{data:transfers},{data:stakers}]=await Promise.all([
+  const[{data:sess},{data:contracts},{data:transfers},{data:stakers},{data:expenses}]=await Promise.all([
     SB.from('sessions').select('*').eq('student_id',me.id).order('date',{ascending:false}),
     SB.from('contracts').select('*').eq('student_id',me.id).order('start_date',{ascending:false}),
     SB.from('transfers').select('*').eq('student_id',me.id).order('date',{ascending:false}),
-    SB.from('stakers').select('*').order('name')
+    SB.from('stakers').select('*').order('name'),
+    SB.from('expenses').select('*').eq('student_id',me.id).order('created_at',{ascending:false})
   ]);
-  mySess=sess||[];myContracts=contracts||[];myTransfers=transfers||[];allStakers=stakers||[];
+  mySess=sess||[];myContracts=contracts||[];myTransfers=transfers||[];allStakers=stakers||[];myExpenses=expenses||[];
   // Load preferences from localStorage (keyed per student)
   const prefsKey=`rp_prefs_${me.id}`;
   const prefs=JSON.parse(localStorage.getItem(prefsKey)||'{}');
@@ -1384,10 +1446,7 @@ function renderStudTransfers(){
       const rcv=t.receiver||'',snd=t.sender||'';
       let amtCls;
       if(split) amtCls='amt-neu';
-      else if(isSite(snd)&&isSite(rcv)) amtCls='amt-neu';
-      else if(isMe(rcv)) amtCls='amt-in';
-      else if(isMe(snd)) amtCls='amt-out';
-      else amtCls='amt-neu';
+      else amtCls=classifyTransferColor(snd,rcv,'student');
       const tsel=batchSelTrans.has(t.id);
       return`<tr class="${tsel?'batch-sel':''}${split?(tsel?' split-row':' split-row'):''}">
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
@@ -1471,16 +1530,17 @@ function removeOptionItem(type,val){
 
 // ── ADMIN DATA ────────────────────────────────────────────────────────────────
 async function loadAdminData(){
-  const[{data:st},{data:se},{data:co},{data:sk},{data:tr},{data:pa},{data:bk}]=await Promise.all([
+  const[{data:st},{data:se},{data:co},{data:sk},{data:tr},{data:pa},{data:bk},{data:ex}]=await Promise.all([
     SB.from('students').select('*').order('created_at',{ascending:false}),
     SB.from('sessions').select('*').order('date',{ascending:false}),
     SB.from('contracts').select('*').order('start_date',{ascending:false}),
     SB.from('stakers').select('*').order('name'),
     SB.from('transfers').select('*').order('date',{ascending:false}),
     SB.from('transfer_parties').select('*').order('name'),
-    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false})
+    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false}),
+    SB.from('expenses').select('*').order('created_at',{ascending:false})
   ]);
-  allStuds=st||[];allSess=se||[];allContracts=co||[];allStakers=sk||[];allTransfers=tr||[];allParties=pa||[];allBankroll=bk||[];
+  allStuds=st||[];allSess=se||[];allContracts=co||[];allStakers=sk||[];allTransfers=tr||[];allParties=pa||[];allBankroll=bk||[];allExpenses=ex||[];
 
   // Populate student filter dropdowns
   const studOpts=[{value:'',label:'All students'},...allStuds.map(s=>({value:s.id,label:`#${s.id} — ${s.name}`}))]; 
@@ -1488,6 +1548,7 @@ async function loadAdminData(){
   const studFiltItems=[{value:'',label:'All students'},...studItems];
   const afm=$('a-flt-stud-menu');if(afm)afm.innerHTML=studFiltItems.map(it=>`<div class="cdd-opt${it.value===''?' selected':''}" onclick="setCdd('a-flt-stud','${it.value}','${it.label.replace(/'/g,"\\'")}',this);renderAllSess()">${esc(it.label)}</div>`).join('');
   const atm=$('a-flt-tstud-menu');if(atm)atm.innerHTML=studFiltItems.map(it=>`<div class="cdd-opt${it.value===''?' selected':''}" onclick="setCdd('a-flt-tstud','${it.value}','${it.label.replace(/'/g,"\\'")}',this);renderAdminTransfers()">${esc(it.label)}</div>`).join('');
+  const aem=$('a-flt-estud-menu');if(aem)aem.innerHTML=studFiltItems.map(it=>`<div class="cdd-opt${it.value===''?' selected':''}" onclick="setCdd('a-flt-estud','${it.value}','${it.label.replace(/'/g,"\\'")}',this);renderAdminExpenses()">${esc(it.label)}</div>`).join('');
 
   // Contract modal: student + staker dropdowns
   const csm=$('c-student-menu');if(csm)csm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('c-student','${it.value}','${it.label.replace(/'/g,"\\'")}',this)">${esc(it.label)}</div>`).join('');
@@ -1498,9 +1559,11 @@ async function loadAdminData(){
 
   // Transfer modal: student + party dropdowns
   const tsm=$('t-student-menu');if(tsm)tsm.innerHTML=studItems.map(it=>`<div class="cdd-opt" onclick="setCdd('t-student','${it.value}','${it.label.replace(/'/g,"\\'")}',this);onTransferStudentChange()">${esc(it.label)}</div>`).join('');
-  const partyOpts=allParties.map(p=>({value:p.name,label:p.name}));
-  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-sender','${it.value}','${it.label}',this);updateTransferDest()">${esc(it.label)}</div>`).join('');
-  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOpts.map(it=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${it.value}','${it.label}',this);updateTransferDest()">${esc(it.label)}</div>`).join('');
+  const admBackerNames=allStakers.map(k=>k.name);
+  const admSites=[...new Set(allSess.map(s=>s.venue).filter(Boolean))].sort();
+  const admPartyGroups=[{header:'Backers',items:admBackerNames},{header:'Sites',items:admSites},{header:'Other',items:['Student','Bank','Crypto']}];
+  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=buildGroupedPartyOpts('t-sender',admPartyGroups,'updateTransferDest()');
+  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=buildGroupedPartyOpts('t-receiver',admPartyGroups,'updateTransferDest()');
   updateTransferDest();
 
   try{renderStudentsTab();}catch(e){console.error('renderStudentsTab',e);}
@@ -1508,6 +1571,7 @@ async function loadAdminData(){
   try{renderAnalyticsTab();}catch(e){console.error('renderAnalyticsTab',e);}
   try{renderRoster();}catch(e){console.error('renderRoster',e);}
   try{renderAdminTransfers();}catch(e){console.error('renderAdminTransfers',e);}
+  try{renderAdminExpenses();}catch(e){console.error('renderAdminExpenses',e);}
   try{renderStakersList();}catch(e){console.error('renderStakersList',e);}
 }
 
@@ -1696,9 +1760,7 @@ function renderAdminTransfers(){
     <tbody>${rows.map(t=>{
       const isSplit=t.type==='split';
       const studName=sm[t.student_id]||'';
-      const moneyIn=studName&&(t.receiver===studName||t.receiver==='Student');
-      const moneyOut=studName&&(t.sender===studName||t.sender==='Student');
-      const amtCls=isSplit?'amt-neu':(moneyIn?'amt-in':moneyOut?'amt-out':'amt-neu');
+      const amtCls=isSplit?'amt-neu':classifyTransferColor(t.sender,t.receiver,'admin');
       const tsel=batchSelTrans.has(t.id);
       return`<tr class="${tsel?'batch-sel':''}${isSplit?(tsel?' split-row':' split-row'):''}">
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
@@ -2077,17 +2139,15 @@ function openTransferModal(){
   $('t-amount').value='';$('t-dest').value='';$('t-notes').value='';
   $('t-split-fields').style.display='none';
 
-  // Build party list
+  // Build grouped party list
   const backerNames=allStakers.map(k=>k.name);
   const source=isAdmin?allSess:mySess;
-  const hasActiveLiveT=myContracts.some(c=>c.play_type==='live'&&c.active!==false);
-  const platforms=isAdmin?[...new Set(allSess.map(s=>s.venue).filter(Boolean))]:
-    (me.play_types!=='online'&&hasActiveLiveT?['Live Roll',...myVenues]:[...new Set(source.map(s=>s.venue).filter(Boolean)),...myVenues]);
-  const parties=[...new Set(['Student',...backerNames,...platforms])];
-  const partyOpts=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this);updateTransferDest()">${esc(p)}</div>`).join('');
-  const partyOptsR=parties.map(p=>`<div class="cdd-opt" onclick="setCdd('t-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this);updateTransferDest()">${esc(p)}</div>`).join('');
-  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=partyOpts;
-  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=partyOptsR;
+  const hasActiveLiveT=(isAdmin?allContracts:myContracts).some(c=>c.play_type==='live'&&c.active!==false);
+  const sites=isAdmin?[...new Set(allSess.map(s=>s.venue).filter(Boolean))].sort():
+    [...new Set([...(me.play_types!=='online'&&hasActiveLiveT?['Live Roll']:[]),...myVenues,...source.map(s=>s.venue).filter(Boolean)])].sort();
+  const senderGroups=[{header:'Backers',items:backerNames},{header:'Sites',items:sites},{header:'Other',items:['Student','Bank','Crypto']}];
+  const sndm=$('t-sender-menu');if(sndm)sndm.innerHTML=buildGroupedPartyOpts('t-sender',senderGroups,'updateTransferDest()');
+  const rcvm=$('t-receiver-menu');if(rcvm)rcvm.innerHTML=buildGroupedPartyOpts('t-receiver',senderGroups,'updateTransferDest()');
   updateTransferDest();
   // reset sender/receiver/dest labels
   const sl=$('t-sender-label');if(sl){sl.textContent='Select…';sl.style.color='var(--muted2)';}
@@ -2187,29 +2247,54 @@ function updateTransferDest(){
   const sender=($('t-sender').value||'').toLowerCase();
   const isStudentReceiver=receiver==='student';
   const isStudentSender=sender==='student';
+  const backerNames=(allStakers||[]).map(s=>s.name);
+  const backerNamesLC=backerNames.map(n=>n.toLowerCase());
+  const sndIsBacker=backerNamesLC.includes(sender);
+  const sndIsSite=sender&&!sndIsBacker&&!isStudentSender&&sender!=='bank'&&sender!=='crypto';
   // Determine which student we're working with
   const sid=isAdmin?$('t-student').value:(me?me.id:null);
   const studSess=sid?(isAdmin?allSess:mySess).filter(s=>!isAdmin||s.student_id===sid):[];
   const studContracts=sid?(isAdmin?allContracts:myContracts).filter(c=>!isAdmin||c.student_id===sid):[];
   const hasLive=studContracts.some(c=>(c.play_type==='live'||c.play_type==='both')&&c.active!==false);
-  const sites=[...new Set(studSess.map(s=>s.venue).filter(Boolean))].sort();
+  const sites=[...new Set([...studSess.map(s=>s.venue).filter(Boolean),...(isAdmin?[]:[...(me&&me.play_types!=='online'&&hasLive?['Live Roll']:[]),...myVenues])])].sort();
+
+  // Rebuild receiver dropdown contextually based on sender
+  if(sender){
+    const rcvm=$('t-receiver-menu');
+    if(rcvm){
+      let rcvGroups=[];
+      if(sndIsBacker){
+        rcvGroups=[{header:'Sites',items:sites},{header:'Other',items:['Student']}];
+      } else if(isStudentSender){
+        rcvGroups=[{header:'Backers',items:backerNames},{header:'Sites',items:sites},{header:'Other',items:['Bank','Crypto']}];
+      } else if(sndIsSite){
+        rcvGroups=[{header:'Backers',items:backerNames},{header:'Sites',items:sites.filter(s=>s.toLowerCase()!==sender)},{header:'Other',items:['Student']}];
+      } else {
+        rcvGroups=[{header:'Backers',items:backerNames},{header:'Sites',items:sites},{header:'Other',items:['Student','Bank','Crypto']}];
+      }
+      rcvm.innerHTML=buildGroupedPartyOpts('t-receiver',rcvGroups,'updateTransferDest()');
+      // Reset receiver if it's no longer in the list
+      const curRcv=$('t-receiver').value;
+      const allRcvItems=rcvGroups.flatMap(g=>g.items.map(i=>i.toLowerCase()));
+      if(curRcv&&!allRcvItems.includes(curRcv.toLowerCase())){
+        $('t-receiver').value='';
+        const rl=$('t-receiver-label');if(rl){rl.textContent='Select…';rl.style.color='var(--muted2)';}
+      }
+    }
+  }
+
+  // Destination dropdown
   let opts=[];
   if(isStudentReceiver){
-    // Money going TO student — destinations are where it lands: their sites + live bankroll
     opts=['Student'];
     if(hasLive)opts.push('Live Bankroll');
     opts.push(...sites);
   } else if(isStudentSender){
-    // Money going FROM student — destinations are where it's going: backers, bank, etc
-    const backerNames=(allStakers||[]).map(s=>s.name);
     opts=[...new Set([...backerNames,...sites,'Bank','Crypto'])];
   } else {
-    // Neither is student — show all options
-    const backerNames=(allStakers||[]).map(s=>s.name);
     opts=[...new Set([...sites,...backerNames,'Student','Bank','Crypto'])];
   }
   destm.innerHTML=opts.map(d=>`<div class="cdd-opt" onclick="setCdd('t-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
-  // Reset dest selection since options changed
   $('t-dest').value='';
   const dl=$('t-dest-label');if(dl){dl.textContent='Select destination…';dl.style.color='var(--muted2)';}
 }
@@ -2248,6 +2333,194 @@ async function delTransfer(id){
   toast('Transfer deleted','ok');isAdmin?loadAdminData():loadStudData();
 }
 
+// ── EXPENSES ─────────────────────────────────────────────────────────────────
+function renderStudExpenses(){
+  const el=$('s-expenses-body');
+  if(!myExpenses.length){el.innerHTML=emptyHtml('💳','No expenses yet.');return;}
+  const pending=myExpenses.filter(e=>e.status==='pending');
+  const paid=myExpenses.filter(e=>e.status==='paid');
+  const pendingTotal=pending.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  let html=`<div style="margin-bottom:1rem;padding:.75rem;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:13px;color:var(--muted);">Pending Reimbursement</span>
+    <span class="amt-move" style="font-size:15px;font-weight:600;">${fm(pendingTotal)}</span>
+  </div>`;
+  if(pending.length){
+    html+=`<div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);margin-bottom:6px;">Pending</div>`;
+    html+=`<table><thead><tr><th>Date</th><th>Amount</th><th>Notes</th><th></th></tr></thead><tbody>`;
+    html+=pending.map(e=>`<tr>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(e.created_at?e.created_at.slice(0,10):'')}</td>
+      <td class="amt-move">${fm(e.amount)}</td>
+      <td style="color:var(--muted2);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
+      <td style="display:flex;gap:3px;"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></td>
+    </tr>`).join('');
+    html+=`</tbody></table>`;
+  }
+  if(paid.length){
+    html+=`<hr class="dvdr"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:6px;">Paid</div>`;
+    html+=`<table><thead><tr><th>Date</th><th>Amount</th><th>Notes</th><th>Paid</th></tr></thead><tbody>`;
+    html+=paid.map(e=>`<tr>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(e.created_at?e.created_at.slice(0,10):'')}</td>
+      <td class="amt-in">${fm(e.amount)}</td>
+      <td style="color:var(--muted2);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
+      <td style="color:var(--muted);font-size:11px;">${e.paid_at?fmtDate(e.paid_at.slice(0,10)):'—'}</td>
+    </tr>`).join('');
+    html+=`</tbody></table>`;
+  }
+  el.innerHTML=html;
+}
+
+function renderAdminExpenses(){
+  const fltStud=$('a-flt-estud')?$('a-flt-estud').value:'';
+  let rows=allExpenses;
+  if(fltStud)rows=rows.filter(e=>e.student_id===fltStud);
+  const el=$('a-expenses-body');
+  if(!rows.length){el.innerHTML=emptyHtml('💳','No expenses yet.');return;}
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  const pending=rows.filter(e=>e.status==='pending');
+  const paid=rows.filter(e=>e.status==='paid');
+  const pendingTotal=pending.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const paidTotal=paid.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  let html=`<div style="display:flex;gap:12px;margin-bottom:1rem;">
+    <div style="flex:1;padding:.75rem;background:var(--s1);border:1px solid rgba(251,191,36,.25);border-radius:var(--r2);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--muted);">Pending</span>
+      <span class="amt-move" style="font-size:15px;font-weight:600;">${fm(pendingTotal)}</span>
+    </div>
+    <div style="flex:1;padding:.75rem;background:var(--s1);border:1px solid rgba(74,222,128,.25);border-radius:var(--r2);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--muted);">Paid</span>
+      <span class="amt-in" style="font-size:15px;font-weight:600;">${fm(paidTotal)}</span>
+    </div>
+  </div>`;
+  if(pending.length){
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);">Pending (${pending.length})</span>
+      <button class="btn btn-p btn-sm" onclick="batchMarkExpensesPaid()">Mark All Paid</button>
+    </div>`;
+    html+=`<table><thead><tr><th>Date</th><th>Student</th><th>Amount</th><th>Notes</th><th></th></tr></thead><tbody>`;
+    html+=pending.map(e=>`<tr>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(e.created_at?e.created_at.slice(0,10):'')}</td>
+      <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${e.student_id}')">${esc(sm[e.student_id]||'—')}</td>
+      <td class="amt-move">${fm(e.amount)}</td>
+      <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
+      <td style="display:flex;gap:3px;">
+        <button class="btn btn-p btn-sm" style="font-size:11px;padding:2px 6px;" onclick="markExpensePaid('${e.id}')">Pay</button>
+        <button class="ib" onclick="editExpense('${e.id}')">✎</button>
+        <button class="ib del" onclick="delExpense('${e.id}')">✕</button>
+      </td>
+    </tr>`).join('');
+    html+=`</tbody></table>`;
+  }
+  if(paid.length){
+    html+=`${pending.length?'<hr class="dvdr">':''}<div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:6px;">Paid (${paid.length})</div>`;
+    html+=`<table><thead><tr><th>Date</th><th>Student</th><th>Amount</th><th>Notes</th><th>Paid</th><th></th></tr></thead><tbody>`;
+    html+=paid.map(e=>`<tr>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(e.created_at?e.created_at.slice(0,10):'')}</td>
+      <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${e.student_id}')">${esc(sm[e.student_id]||'—')}</td>
+      <td class="amt-in">${fm(e.amount)}</td>
+      <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
+      <td style="color:var(--muted);font-size:11px;">${e.paid_at?fmtDate(e.paid_at.slice(0,10)):'—'}</td>
+      <td style="display:flex;gap:3px;"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></td>
+    </tr>`).join('');
+    html+=`</tbody></table>`;
+  }
+  el.innerHTML=html;
+}
+
+function openExpenseModal(){
+  editExpenseId=null;
+  $('expense-modal-title').textContent='New Expense';
+  $('e-amount').value='';$('e-notes').value='';
+  setCdd('e-status','pending','Pending',null);
+  if(isAdmin){
+    $('e-stud-wrap').style.display='';
+    $('e-status-wrap').style.display='';
+    const esm=$('e-student-menu');
+    if(esm)esm.innerHTML=allStuds.map(s=>`<div class="cdd-opt" onclick="setCdd('e-student','${s.id}','#${s.id} — ${s.name.replace(/'/g,"\\'")}',this)">#${esc(s.id)} — ${esc(s.name)}</div>`).join('');
+    const el=$('e-student-label');if(el){el.textContent='Select student…';el.style.color='var(--muted2)';}
+    $('e-student').value='';
+  } else {
+    $('e-stud-wrap').style.display='none';
+    $('e-status-wrap').style.display='none';
+    setCdd('e-student',me.id,me.name,null);
+  }
+  $('expense-save-btn').textContent='Save';
+  ov('expense-overlay');
+}
+
+function editExpense(id){
+  const list=isAdmin?allExpenses:myExpenses;
+  const e=list.find(x=>x.id===id);
+  if(!e)return;
+  if(!isAdmin&&e.status==='paid'){toast('Cannot edit paid expenses','err');return;}
+  openExpenseModal();
+  editExpenseId=id;
+  $('expense-modal-title').textContent='Edit Expense';
+  $('expense-save-btn').textContent='Update';
+  $('e-amount').value=e.amount||'';
+  $('e-notes').value=e.notes||'';
+  if(isAdmin){
+    setCdd('e-student',e.student_id,`#${e.student_id}`,null);
+    setCdd('e-status',e.status,e.status==='paid'?'Paid':'Pending',null);
+  }
+}
+
+async function saveExpense(){
+  const amount=parseFloat($('e-amount').value)||0;
+  const notes=$('e-notes').value.trim();
+  const sid=isAdmin?$('e-student').value:(me?me.id:null);
+  const status=isAdmin?($('e-status').value||'pending'):'pending';
+  if(!amount){toast('Amount required','err');return;}
+  if(!sid){toast('Student required','err');return;}
+  const row={student_id:sid,amount,notes:notes||null,status};
+  if(status==='paid'&&!editExpenseId) row.paid_at=new Date().toISOString();
+  if(editExpenseId){
+    // If changing to paid, set paid_at
+    const prev=(isAdmin?allExpenses:myExpenses).find(x=>x.id===editExpenseId);
+    if(prev&&prev.status!=='paid'&&status==='paid') row.paid_at=new Date().toISOString();
+    if(prev&&prev.status==='paid'&&status!=='paid') row.paid_at=null;
+  }
+  const btn=$('expense-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  const{error}=editExpenseId
+    ?await SB.from('expenses').update(row).eq('id',editExpenseId)
+    :await SB.from('expenses').insert([row]);
+  btn.textContent=editExpenseId?'Update':'Save';btn.disabled=false;
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast(editExpenseId?'Expense updated':'Expense saved','ok');
+  cov('expense-overlay');
+  isAdmin?loadAdminData():loadStudData();
+}
+
+async function delExpense(id){
+  if(!isAdmin){
+    const e=myExpenses.find(x=>x.id===id);
+    if(e&&e.status==='paid'){toast('Cannot delete paid expenses','err');return;}
+  }
+  if(!confirm('Delete this expense?'))return;
+  const{error}=await SB.from('expenses').delete().eq('id',id);
+  if(error){toast('Delete failed','err');return;}
+  toast('Expense deleted','ok');
+  isAdmin?loadAdminData():loadStudData();
+}
+
+async function markExpensePaid(id){
+  const{error}=await SB.from('expenses').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Expense marked as paid','ok');
+  loadAdminData();
+}
+
+async function batchMarkExpensesPaid(){
+  const fltStud=$('a-flt-estud')?$('a-flt-estud').value:'';
+  let pending=allExpenses.filter(e=>e.status==='pending');
+  if(fltStud)pending=pending.filter(e=>e.student_id===fltStud);
+  if(!pending.length){toast('No pending expenses','err');return;}
+  if(!confirm(`Mark ${pending.length} expense${pending.length>1?'s':''} as paid?`))return;
+  const ids=pending.map(e=>e.id);
+  const{error}=await SB.from('expenses').update({status:'paid',paid_at:new Date().toISOString()}).in('id',ids);
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast(`${ids.length} expense${ids.length>1?'s':''} marked as paid`,'ok');
+  loadAdminData();
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function aTab(name,btn){
   document.querySelectorAll('#admin-app .tab-pane').forEach(p=>p.classList.remove('active'));
@@ -2256,6 +2529,7 @@ function aTab(name,btn){
   btn.classList.add('active');
   if(name==='analytics')renderAnalyticsTab();
   if(name==='students')renderStudentsTab();
+  if(name==='expenses')renderAdminExpenses();
 }
 
 // ── OVERLAYS ──────────────────────────────────────────────────────────────────
@@ -2359,7 +2633,9 @@ function selectBatchAction(action){
   // build venue/party options from current data
   const sessions=isAdmin?allSess:mySess;
   const venues=[...new Set(sessions.map(s=>s.venue).filter(Boolean))].sort();
-  const parties=[...new Set([...(allParties||[]).map(p=>p.name),...(allStakers||[]).map(s=>s.name),'Student'])].sort();
+  const beBackerNames=(allStakers||[]).map(s=>s.name);
+  const beSites=[...new Set(sessions.map(s=>s.venue).filter(Boolean))].sort();
+  const beGroups=[{header:'Backers',items:beBackerNames},{header:'Sites',items:beSites},{header:'Other',items:['Student','Bank','Crypto']}];
   const fmts=['NLH','PLO4','PLO5','Mixed','Other'];
   const stakeList=isAdmin?[...new Set(allSess.map(s=>s.stake_level).filter(Boolean))].sort():[...new Set([...ONLINE_STAKES,...sessions.map(s=>s.stake_level).filter(Boolean)])];
   if(action==='venue'){
@@ -2371,9 +2647,9 @@ function selectBatchAction(action){
   } else if(action==='remove-stake'){
     area.innerHTML=`<p style="color:var(--muted);font-size:13px;">This will clear the stake level on all selected sessions.</p>`;
   } else if(action==='sender'){
-    area.innerHTML=`<div class="fld"><label>New Sender</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-sender-cdd" onclick="toggleCdd('be-sender-cdd','be-sender-menu')"><span id="be-sender-label" style="color:var(--muted2);">Select sender…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-sender-menu" style="display:none;">${parties.map(p=>`<div class="cdd-opt" onclick="setCdd('be-sender','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('')}</div></div><input type="hidden" id="be-sender"></div>`;
+    area.innerHTML=`<div class="fld"><label>New Sender</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-sender-cdd" onclick="toggleCdd('be-sender-cdd','be-sender-menu')"><span id="be-sender-label" style="color:var(--muted2);">Select sender…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-sender-menu" style="display:none;">${buildGroupedPartyOpts('be-sender',beGroups,'')}</div></div><input type="hidden" id="be-sender"></div>`;
   } else if(action==='receiver'){
-    area.innerHTML=`<div class="fld"><label>New Receiver</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-receiver-cdd" onclick="toggleCdd('be-receiver-cdd','be-receiver-menu')"><span id="be-receiver-label" style="color:var(--muted2);">Select receiver…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-receiver-menu" style="display:none;">${parties.map(p=>`<div class="cdd-opt" onclick="setCdd('be-receiver','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this)">${esc(p)}</div>`).join('')}</div></div><input type="hidden" id="be-receiver"></div>`;
+    area.innerHTML=`<div class="fld"><label>New Receiver</label><div class="cdd-wrap"><button class="cdd-trigger" id="be-receiver-cdd" onclick="toggleCdd('be-receiver-cdd','be-receiver-menu')"><span id="be-receiver-label" style="color:var(--muted2);">Select receiver…</span><span class="cdd-arrow">▾</span></button><div class="cdd-menu" id="be-receiver-menu" style="display:none;">${buildGroupedPartyOpts('be-receiver',beGroups,'')}</div></div><input type="hidden" id="be-receiver"></div>`;
   } else if(action==='flip'){
     area.innerHTML=`<p style="color:var(--muted);font-size:13px;">This will swap sender and receiver on all selected transfers.</p>`;
   }
@@ -2736,6 +3012,34 @@ function emptyHtml(icon,msg){return`<div class="empty"><div class="empty-icon">$
 function parseBB(s){if(!s)return null;const t=s.trim(),nl=t.match(/^(\d+(?:\.\d+)?)\s*nl$/i)||t.match(/^nl\s*(\d+(?:\.\d+)?)$/i);if(nl)return parseFloat(nl[1])/100;const sl=t.match(/[\d.]+\s*\/\s*([\d.]+)/);return sl?parseFloat(sl[1]):null;}
 function calcBB100(sessions){let ws=0,th=0;for(const s of sessions){const bb=parseBB(s.stake_level),h=parseInt(s.hands_played)||0;if(bb&&h&&bb>0){ws+=(+s.profit||0)/bb;th+=h;}}return th===0?null:(ws/th)*100;}
 function toast(msg,type='ok'){const t=$('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ── TRANSFER COLOR CLASSIFICATION ────────────────────────────────────────────
+function classifyTransferColor(sender,receiver,perspective){
+  const snd=(sender||'').toLowerCase(),rcv=(receiver||'').toLowerCase();
+  const backerNames=(allStakers||[]).map(s=>s.name.toLowerCase());
+  const isBacker=v=>backerNames.includes(v);
+  const sndIsBacker=isBacker(snd),rcvIsBacker=isBacker(rcv);
+  if(!sndIsBacker&&!rcvIsBacker) return 'amt-move'; // internal move → orange
+  if(perspective==='student'){
+    if(sndIsBacker) return 'amt-in';  // backer sending → green (money in)
+    if(rcvIsBacker) return 'amt-out'; // backer receiving → red (money out)
+  } else { // admin perspective (inverted)
+    if(rcvIsBacker) return 'amt-in';  // backer receiving → green (money returning)
+    if(sndIsBacker) return 'amt-out'; // backer sending → red (money going out)
+  }
+  return 'amt-move';
+}
+
+// ── GROUPED DROPDOWN BUILDER ─────────────────────────────────────────────────
+function buildGroupedPartyOpts(inputId,groups,onChange){
+  let html='';
+  for(const g of groups){
+    if(!g.items||!g.items.length) continue;
+    html+=`<div class="cdd-hdr">${esc(g.header)}</div>`;
+    html+=g.items.map(p=>`<div class="cdd-opt" onclick="setCdd('${inputId}','${p.replace(/'/g,"\\'")}','${p.replace(/'/g,"\\'")}',this);${onChange||''}">${esc(p)}</div>`).join('');
+  }
+  return html;
+}
 </script>
 </body>
 </html>
