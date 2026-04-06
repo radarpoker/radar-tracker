@@ -2938,6 +2938,10 @@ function skCls(sk){
   if(v<=50)return'b-sk-live-high';
   return'b-sk-live-nosebleed';
 }
+function stripFormatFromStake(s){
+  // Remove trailing format suffixes: "1/2/5 PLO" → "1/2/5", "5/5plo" → "5/5", "2/2/5plo" → "2/2/5"
+  return s.replace(/\s*(PLO\d?|NLH|NL|NLHE|PLO)\s*$/i,'').trim();
+}
 function stakesBadges(stakeLevel,playType){
   if(!stakeLevel||stakeLevel==='—')return'—';
   try{
@@ -2947,6 +2951,7 @@ function stakesBadges(stakeLevel,playType){
       let display=s;
       if(playType==='live'&&isOnlineStake(s)){display=nlToLiveStake(s);}
       else if(isOnlineStake(s)){display=normalizeOnlineStake(s);}
+      else{display=stripFormatFromStake(display);}
       const cls=playType==='live'?skCls(display):skCls(s);
       return`<span class="bdg ${cls}">${display}</span>`;
     }).join(' ');
