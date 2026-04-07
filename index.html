@@ -1470,7 +1470,7 @@ function renderStudTransfers(){
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${split?'b-act':'b-oth'}">${t.type}</span></td>
-      <td>${partyBadge(snd,myName,t)}</td><td>${partyBadge(rcv,myName,t)}</td>
+      <td>${partyBadge(snd,myName,t,'sender')}</td><td>${partyBadge(rcv,myName,t,'receiver')}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
       <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
@@ -1834,7 +1834,7 @@ function renderAdminTransfers(){
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${isSplit?'b-act':'b-oth'}">${t.type}</span></td>
       <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${t.student_id}')">${esc(studName||'—')}</td>
-      <td>${partyBadge(t.sender,studName,t)}</td><td>${partyBadge(t.receiver,studName,t)}</td>
+      <td>${partyBadge(t.sender,studName,t,'sender')}</td><td>${partyBadge(t.receiver,studName,t,'receiver')}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);">${t.split_month||'—'}</td>
       <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
@@ -3150,34 +3150,50 @@ function partyKind(v,studName){
   if(lc==='bank'||lc==='crypto')return 'other';
   return 'site';
 }
-function partyBadge(v,studName,t){
+function partyBadge(v,studName,t,side){
   if(!v)return '<span style="color:var(--muted);">—</span>';
   let display=v;
-  // Resolve generic "Backer" to the actual backer name from the student's contract
-  if(String(v).toLowerCase()==='backer'&&t){
-    const resolved=resolveBackerForTransfer(t,v);
+  const lc=String(v).toLowerCase();
+  // Resolve generic "Backer" → actual backer name from the student's contract
+  if(lc==='backer'&&t){
+    const resolved=resolveBackerForTransfer(t,side);
+    if(resolved)display=resolved;
+  }
+  // Resolve generic "Student" → the actual student name when we know who it is
+  else if(lc==='student'&&studName){
+    display=studName;
+  }
+  // Resolve generic "Site" → try to extract real venue from notes "X → Y"
+  else if(lc==='site'&&t){
+    const resolved=resolveSiteFromNotes(t,side);
     if(resolved)display=resolved;
   }
   const k=partyKind(display,studName);
   const cls=k==='backer'?'b-pty-backer':k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
   return `<span class="bdg ${cls}">${esc(display)}</span>`;
 }
+// ── BACKER / SITE RESOLUTION ─────────────────────────────────────────────────
+// Use admin's full data when available, else fall back to the student's own arrays.
+function _xferContracts(){return (typeof allContracts!=='undefined'&&allContracts.length)?allContracts:(typeof myContracts!=='undefined'?myContracts:[]);}
+function _xferSess(){return (typeof allSess!=='undefined'&&allSess.length)?allSess:(typeof mySess!=='undefined'?mySess:[]);}
+
 // Resolve a generic "Backer" reference on a transfer to the actual staker name.
 // Strategy: 1) if student has 1 active contract, use that backer.
 //           2) if 2 active contracts (live + online), look at the OTHER party — if it's
 //              a known venue, use the contract whose play_type matches that venue's sessions.
 //           3) fallback to live contract, then any active contract.
-function resolveBackerForTransfer(t,backerSide){
+function resolveBackerForTransfer(t,side){
   if(!t||!t.student_id)return null;
-  const studContracts=(allContracts||[]).filter(c=>c.student_id===t.student_id&&c.active!==false);
+  const contracts=_xferContracts();
+  const sess=_xferSess();
+  const studContracts=contracts.filter(c=>c.student_id===t.student_id&&c.active!==false);
   if(!studContracts.length)return null;
   const skName=id=>{const sk=(allStakers||[]).find(k=>k.id===id);return sk?sk.name:null;};
   if(studContracts.length===1)return skName(studContracts[0].staker_id);
   // Try to disambiguate via the other party's venue → play_type
-  const sndIsBacker=String(t.sender||'').toLowerCase()==='backer';
-  const otherParty=sndIsBacker?t.receiver:t.sender;
+  const otherParty=side==='sender'?t.receiver:t.sender;
   if(otherParty){
-    const venueSess=(allSess||[]).find(s=>s.student_id===t.student_id&&s.venue&&s.venue.toLowerCase()===String(otherParty).toLowerCase());
+    const venueSess=sess.find(s=>s.student_id===t.student_id&&s.venue&&s.venue.toLowerCase()===String(otherParty).toLowerCase());
     if(venueSess){
       const c=studContracts.find(c=>c.play_type===venueSess.play_type||c.play_type==='both');
       if(c)return skName(c.staker_id);
@@ -3187,6 +3203,21 @@ function resolveBackerForTransfer(t,backerSide){
   const liveC=studContracts.find(c=>c.play_type==='live'||c.play_type==='both');
   if(liveC)return skName(liveC.staker_id);
   return skName(studContracts[0].staker_id);
+}
+// Try to extract a real venue name from a transfer's notes when sender/receiver
+// is a generic "Site" placeholder. Legacy records from the sheet import store
+// the real venues in notes formatted like "WSOP → STAKE.US" or "Dest: STAKE".
+function resolveSiteFromNotes(t,side){
+  const notes=(t&&t.notes)||'';
+  if(!notes)return null;
+  // Strip a leading "Dest: X | " prefix that the new transfer modal adds
+  const cleaned=notes.replace(/^Dest:\s*[^|]+\s*\|\s*/,'').trim();
+  // Pattern: "X → Y" or "X -> Y" or "X to Y"
+  const m=cleaned.match(/^(.+?)\s*(?:→|->|—>|=>|>)\s*(.+?)$/);
+  if(m){
+    return (side==='sender'?m[1]:m[2]).trim();
+  }
+  return null;
 }
 
 // ── TRANSFER COLOR CLASSIFICATION ────────────────────────────────────────────
