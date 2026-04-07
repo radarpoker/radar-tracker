@@ -1470,7 +1470,7 @@ function renderStudTransfers(){
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${split?'b-act':'b-oth'}">${t.type}</span></td>
-      <td>${partyBadge(snd,myName)}</td><td>${partyBadge(rcv,myName)}</td>
+      <td>${partyBadge(snd,myName,t)}</td><td>${partyBadge(rcv,myName,t)}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
       <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
@@ -1834,7 +1834,7 @@ function renderAdminTransfers(){
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${isSplit?'b-act':'b-oth'}">${t.type}</span></td>
       <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${t.student_id}')">${esc(studName||'—')}</td>
-      <td>${partyBadge(t.sender,studName)}</td><td>${partyBadge(t.receiver,studName)}</td>
+      <td>${partyBadge(t.sender,studName,t)}</td><td>${partyBadge(t.receiver,studName,t)}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);">${t.split_month||'—'}</td>
       <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
@@ -1899,10 +1899,11 @@ function openStudInfo(sid){
         <div class="sc"><div class="sc-lbl">Staker Cut</div><div class="sc-val neu">${fm(Math.round(cs.stakerTake))}</div></div>
         <div class="sc"><div class="sc-lbl">Bankroll</div><div class="sc-val ${bankroll>0?'pos':bankroll<0?'neg':'neu'}">${fm(bankroll)}</div></div>
       </div>
-      ${activeContract?`<div style="font-size:11px;color:var(--muted2);margin-bottom:.5rem;">Active contract: ${activeContract.start_date}${activeContract.end_date?' → '+activeContract.end_date:' (open-ended)'}</div>`:'<div style="font-size:11px;color:var(--muted);margin-bottom:.5rem;">No active contract</div>'}
+      ${activeContract?`<div style="font-size:11px;color:var(--muted2);margin-bottom:.5rem;">Active contract: ${activeContract.start_date}${activeContract.end_date?' → '+activeContract.end_date:' (open-ended)'} ${(()=>{const sk=allStakers.find(k=>k.id===activeContract.staker_id);return sk?'· <span style=\"color:var(--accent);\">'+esc(sk.name)+'</span>':'';})()}</div>`:'<div style="font-size:11px;color:var(--muted);margin-bottom:.5rem;">No active contract</div>'}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-g btn-sm" onclick="cov('info-overlay');filterAdminToStudent('${sid}','${type}')">→ View ${type} sessions</button>
         <button class="btn btn-g btn-sm" onclick="cov('info-overlay');openContractModal('${sid}','${type}')">+ Contract</button>
+        ${activeContract?`<button class="btn btn-g btn-sm" onclick="cov('info-overlay');editContract('${activeContract.id}')">✎ Edit Contract</button><button class="btn btn-d btn-sm" onclick="delContract('${activeContract.id}')">✕ Delete</button>`:''}
       </div>
     </div>`;
   }
@@ -1944,7 +1945,7 @@ function openStakerInfo(skid){
       return`<div class="contract-card active-contract">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
           <span><span class="contract-badge ${c.play_type}">${c.play_type}</span><span style="cursor:pointer;color:var(--accent);font-weight:600;" onclick="cov('staker-info-overlay');openStudInfo('${sid}')">${esc(sName)}</span></span>
-          <span class="contract-badge active">Active</span>
+          <span style="display:flex;gap:4px;align-items:center;"><span class="contract-badge active">Active</span><button class="ib" style="margin-left:4px;" onclick="cov('staker-info-overlay');editContract('${c.id}')">✎</button><button class="ib del" onclick="delContract('${c.id}')">✕</button></span>
         </div>
         <div style="display:flex;gap:1.5rem;font-size:12px;color:var(--muted2);">
           <span>Net: <strong style="color:${cs.netProfit>=0?'var(--accent)':'var(--red)'}">${fm(cs.netProfit)}</strong></span>
@@ -2119,6 +2120,12 @@ async function delStud(id){
   if(error){toast('Delete failed','err');return;}
   toast('Student deleted','ok');loadAdminData();
 }
+async function delContract(id){
+  if(!confirm('Delete this contract? This cannot be undone.'))return;
+  const{error}=await SB.from('contracts').delete().eq('id',id);
+  if(error){toast('Delete failed: '+error.message,'err');return;}
+  toast('Contract deleted','ok');cov('info-overlay');cov('staker-info-overlay');loadAdminData();
+}
 
 // ── CONTRACT CRUD ─────────────────────────────────────────────────────────────
 function openContractModal(sid,preferType){
@@ -2211,8 +2218,16 @@ function openTransferModal(){
   $('t-amount').value='';$('t-dest').value='';$('t-notes').value='';
   $('t-split-fields').style.display='none';
 
-  // Build grouped party list
-  const backerNames=allStakers.map(k=>k.name);
+  // Build grouped party list. Students can ONLY pick from their own backers
+  // (force-specified — no generic "Backer" choice). Admin sees all backers
+  // until a specific student is selected, then it narrows in updateTransferDest.
+  let backerNames;
+  if(isAdmin){
+    backerNames=allStakers.map(k=>k.name);
+  } else {
+    const myBackerIds=new Set(myContracts.filter(c=>c.active!==false).map(c=>c.staker_id));
+    backerNames=allStakers.filter(k=>myBackerIds.has(k.id)).map(k=>k.name);
+  }
   const source=isAdmin?allSess:mySess;
   const hasActiveLiveT=(isAdmin?allContracts:myContracts).some(c=>c.play_type==='live'&&c.active!==false);
   const sites=isAdmin?[...new Set(allSess.map(s=>s.venue).filter(Boolean))].sort():
@@ -2251,7 +2266,7 @@ function setTransferType(type){
     autoFillSplit();
   }
 }
-function onTransferStudentChange(){if(curTransferType==='split')autoFillSplit();}
+function onTransferStudentChange(){updateTransferDest();if(curTransferType==='split')autoFillSplit();}
 function autoFillSplit(){
   const sid=isAdmin?$('t-student').value:(me?me.id:'');
   const month=$('t-split-month').value;// e.g. "2026-03"
@@ -2319,16 +2334,37 @@ function updateTransferDest(){
   const sender=($('t-sender').value||'').toLowerCase();
   const isStudentReceiver=receiver==='student';
   const isStudentSender=sender==='student';
-  const backerNames=(allStakers||[]).map(s=>s.name);
-  const backerNamesLC=backerNames.map(n=>n.toLowerCase());
-  const sndIsBacker=backerNamesLC.includes(sender);
-  const sndIsSite=sender&&!sndIsBacker&&!isStudentSender&&sender!=='bank'&&sender!=='crypto';
   // Determine which student we're working with
   const sid=isAdmin?$('t-student').value:(me?me.id:null);
   const studSess=sid?(isAdmin?allSess:mySess).filter(s=>!isAdmin||s.student_id===sid):[];
   const studContracts=sid?(isAdmin?allContracts:myContracts).filter(c=>!isAdmin||c.student_id===sid):[];
   const hasLive=studContracts.some(c=>(c.play_type==='live'||c.play_type==='both')&&c.active!==false);
+  // Restrict backer list to ONLY this student's contracted backer(s).
+  // If no student selected yet on the admin flow, show all backers.
+  let backerNames;
+  if(sid){
+    const myBackerIds=new Set(studContracts.filter(c=>c.active!==false).map(c=>c.staker_id));
+    backerNames=(allStakers||[]).filter(k=>myBackerIds.has(k.id)).map(s=>s.name);
+  } else {
+    backerNames=(allStakers||[]).map(s=>s.name);
+  }
+  const backerNamesLC=backerNames.map(n=>n.toLowerCase());
+  const sndIsBacker=backerNamesLC.includes(sender);
+  const sndIsSite=sender&&!sndIsBacker&&!isStudentSender&&sender!=='bank'&&sender!=='crypto';
   const sites=[...new Set([...studSess.map(s=>s.venue).filter(Boolean),...(isAdmin?[]:[...(me&&me.play_types!=='online'&&hasLive?['Live Roll']:[]),...myVenues])])].sort();
+  // Also rebuild the SENDER menu so the narrowed backer list is reflected there too
+  const sndm=$('t-sender-menu');
+  if(sndm){
+    const senderGroups=[{header:'Backers',items:backerNames},{header:'Sites',items:sites},{header:'Other',items:['Student','Bank','Crypto']}];
+    sndm.innerHTML=buildGroupedPartyOpts('t-sender',senderGroups,'updateTransferDest()');
+    // Clear sender if it's no longer in the allowed list
+    const curSnd=$('t-sender').value;
+    const allSndItems=senderGroups.flatMap(g=>g.items.map(i=>i.toLowerCase()));
+    if(curSnd&&!allSndItems.includes(curSnd.toLowerCase())){
+      $('t-sender').value='';
+      const sl=$('t-sender-label');if(sl){sl.textContent='Select…';sl.style.color='var(--muted2)';}
+    }
+  }
 
   // Rebuild receiver dropdown contextually based on sender
   if(sender){
@@ -3114,11 +3150,43 @@ function partyKind(v,studName){
   if(lc==='bank'||lc==='crypto')return 'other';
   return 'site';
 }
-function partyBadge(v,studName){
+function partyBadge(v,studName,t){
   if(!v)return '<span style="color:var(--muted);">—</span>';
-  const k=partyKind(v,studName);
+  let display=v;
+  // Resolve generic "Backer" to the actual backer name from the student's contract
+  if(String(v).toLowerCase()==='backer'&&t){
+    const resolved=resolveBackerForTransfer(t,v);
+    if(resolved)display=resolved;
+  }
+  const k=partyKind(display,studName);
   const cls=k==='backer'?'b-pty-backer':k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
-  return `<span class="bdg ${cls}">${esc(v)}</span>`;
+  return `<span class="bdg ${cls}">${esc(display)}</span>`;
+}
+// Resolve a generic "Backer" reference on a transfer to the actual staker name.
+// Strategy: 1) if student has 1 active contract, use that backer.
+//           2) if 2 active contracts (live + online), look at the OTHER party — if it's
+//              a known venue, use the contract whose play_type matches that venue's sessions.
+//           3) fallback to live contract, then any active contract.
+function resolveBackerForTransfer(t,backerSide){
+  if(!t||!t.student_id)return null;
+  const studContracts=(allContracts||[]).filter(c=>c.student_id===t.student_id&&c.active!==false);
+  if(!studContracts.length)return null;
+  const skName=id=>{const sk=(allStakers||[]).find(k=>k.id===id);return sk?sk.name:null;};
+  if(studContracts.length===1)return skName(studContracts[0].staker_id);
+  // Try to disambiguate via the other party's venue → play_type
+  const sndIsBacker=String(t.sender||'').toLowerCase()==='backer';
+  const otherParty=sndIsBacker?t.receiver:t.sender;
+  if(otherParty){
+    const venueSess=(allSess||[]).find(s=>s.student_id===t.student_id&&s.venue&&s.venue.toLowerCase()===String(otherParty).toLowerCase());
+    if(venueSess){
+      const c=studContracts.find(c=>c.play_type===venueSess.play_type||c.play_type==='both');
+      if(c)return skName(c.staker_id);
+    }
+  }
+  // Fallback: live contract first, then anything
+  const liveC=studContracts.find(c=>c.play_type==='live'||c.play_type==='both');
+  if(liveC)return skName(liveC.staker_id);
+  return skName(studContracts[0].staker_id);
 }
 
 // ── TRANSFER COLOR CLASSIFICATION ────────────────────────────────────────────
