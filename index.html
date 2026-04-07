@@ -1156,13 +1156,12 @@ function sSubTab(name,btn){document.querySelectorAll('#student-app .tab-pane').f
 
 // ── STUDENT DATA ──────────────────────────────────────────────────────────────
 async function loadStudData(){
-  const ROW_LIMIT=100000;
-  const[{data:sess},{data:contracts},{data:transfers},{data:stakers},{data:expenses}]=await Promise.all([
-    SB.from('sessions').select('*').eq('student_id',me.id).order('date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('contracts').select('*').eq('student_id',me.id).order('start_date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('transfers').select('*').eq('student_id',me.id).order('date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('stakers').select('*').order('name').limit(ROW_LIMIT),
-    SB.from('expenses').select('*').eq('student_id',me.id).order('created_at',{ascending:false}).limit(ROW_LIMIT)
+  const[sess,contracts,transfers,stakers,expenses]=await Promise.all([
+    fetchAllRows('sessions',q=>q.select('*').eq('student_id',me.id).order('date',{ascending:false})),
+    fetchAllRows('contracts',q=>q.select('*').eq('student_id',me.id).order('start_date',{ascending:false})),
+    fetchAllRows('transfers',q=>q.select('*').eq('student_id',me.id).order('date',{ascending:false})),
+    fetchAllRows('stakers',q=>q.select('*').order('name')),
+    fetchAllRows('expenses',q=>q.select('*').eq('student_id',me.id).order('created_at',{ascending:false}))
   ]);
   mySess=sess||[];myContracts=contracts||[];myTransfers=transfers||[];allStakers=stakers||[];myExpenses=expenses||[];
   // Load preferences from localStorage (keyed per student)
@@ -1552,19 +1551,33 @@ function removeOptionItem(type,val){
   saveStudPrefs();renderStudOptions();
 }
 
+// ── PAGINATION HELPER ─────────────────────────────────────────────────────────
+// Supabase enforces a server-side max-rows cap (default 1000) that .limit() can't bypass.
+// Walk through results in pages of 1000 with .range() until we run out.
+async function fetchAllRows(table,buildFn,pageSize=1000){
+  let all=[],from=0;
+  while(true){
+    const{data,error}=await buildFn(SB.from(table)).range(from,from+pageSize-1);
+    if(error){console.error('fetchAllRows '+table,error);break;}
+    if(!data||!data.length)break;
+    all.push(...data);
+    if(data.length<pageSize)break;
+    from+=pageSize;
+  }
+  return all;
+}
+
 // ── ADMIN DATA ────────────────────────────────────────────────────────────────
 async function loadAdminData(){
-  // Note: Supabase defaults to 1000 rows/query — explicitly set high limits so we get everything
-  const ROW_LIMIT=100000;
-  const[{data:st},{data:se},{data:co},{data:sk},{data:tr},{data:pa},{data:bk},{data:ex}]=await Promise.all([
-    SB.from('students').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('sessions').select('*').order('date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('contracts').select('*').order('start_date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('stakers').select('*').order('name').limit(ROW_LIMIT),
-    SB.from('transfers').select('*').order('date',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('transfer_parties').select('*').order('name').limit(ROW_LIMIT),
-    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT),
-    SB.from('expenses').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT)
+  const[st,se,co,sk,tr,pa,bk,ex]=await Promise.all([
+    fetchAllRows('students',q=>q.select('*').order('created_at',{ascending:false})),
+    fetchAllRows('sessions',q=>q.select('*').order('date',{ascending:false})),
+    fetchAllRows('contracts',q=>q.select('*').order('start_date',{ascending:false})),
+    fetchAllRows('stakers',q=>q.select('*').order('name')),
+    fetchAllRows('transfers',q=>q.select('*').order('date',{ascending:false})),
+    fetchAllRows('transfer_parties',q=>q.select('*').order('name')),
+    fetchAllRows('bankroll_entries',q=>q.select('*').order('created_at',{ascending:false})),
+    fetchAllRows('expenses',q=>q.select('*').order('created_at',{ascending:false}))
   ]);
   allStuds=st||[];allSess=se||[];allContracts=co||[];allStakers=sk||[];allTransfers=tr||[];allParties=pa||[];allBankroll=bk||[];allExpenses=ex||[];
 
