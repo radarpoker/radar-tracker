@@ -142,6 +142,11 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .b-sk-live-50-100{color:#ef4444;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
 .b-sk-live-high{color:#e879f9;border-color:rgba(232,121,249,.35);background:rgba(232,121,249,.08)}
 .b-sk-live-nosebleed{color:#fff;border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1);text-shadow:0 0 8px rgba(255,255,255,.6)}
+/* TRANSFER PARTY BADGES */
+.b-pty-backer{color:#fbbf24;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+.b-pty-site{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
+.b-pty-student{color:#4ade80;border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
+.b-pty-other{color:var(--muted2);border-color:var(--border2);background:rgba(255,255,255,.02)}
 
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .18s}
@@ -1036,10 +1041,12 @@ const $=id=>document.getElementById(id);
 const SB_URL='https://kpmcrkcpyywouxzniren.supabase.co';
 const SB_KEY='sb_publishable_vzAVOfHFyVn1-RbcfP39GA_aA22sOkg';
 const ADMIN_PIN='65591';
+// Backer-scoped admin PINs — same admin UI but data filtered to that backer's students
+const BACKER_ADMIN_PINS={'22660':'Radar Poker','27035':'Ned','14035':'Makaya'};
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let SB=null;
-let me=null,isAdmin=false;
+let me=null,isAdmin=false,backerScope=null;
 let allStuds=[],allSess=[],allContracts=[],allStakers=[],allTransfers=[],allParties=[],allBankroll=[];
 let mySess=[],myContracts=[],myTransfers=[],myVenues=[],myStakes=[],myFormats=[];
 let allExpenses=[],myExpenses=[];
@@ -1075,7 +1082,7 @@ function showLogin(){
   $('mode-admin-btn').style.cssText='flex:1;font-size:13px;padding:7px 14px;letter-spacing:.06em;';
   $('login-screen').style.display='flex';
 }
-function logout(){me=null;isAdmin=false;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];allExpenses=[];mySess=[];myContracts=[];myTransfers=[];myExpenses=[];myVenues=[];myStakes=[];myFormats=[];showLogin();}
+function logout(){me=null;isAdmin=false;backerScope=null;allStuds=[];allSess=[];allContracts=[];allStakers=[];allTransfers=[];allParties=[];allBankroll=[];allExpenses=[];mySess=[];myContracts=[];myTransfers=[];myExpenses=[];myVenues=[];myStakes=[];myFormats=[];showLogin();}
 function setLoginMode(mode){
   loginMode=mode;idEntry='';pinEntry='';$('login-err').textContent='';
   const player=mode==='player';
@@ -1106,10 +1113,13 @@ async function doPlayerLogin(){
   buildModeTabs();loadStudData();
 }
 function doAdminLogin(){
-  if(pinEntry===ADMIN_PIN){
+  if(pinEntry===ADMIN_PIN||BACKER_ADMIN_PINS[pinEntry]){
+    backerScope=BACKER_ADMIN_PINS[pinEntry]||null;
     isAdmin=true;me=null;
     ['setup-screen','login-screen','admin-login-screen','student-app','admin-app'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
     $('admin-app').style.display='block';
+    const badge=document.querySelector('#admin-app .tbadge.admin');
+    if(badge)badge.textContent=backerScope?`Admin · ${backerScope}`:'Admin';
     $('a-conn-info').innerHTML=`URL: <span style="color:var(--text)">${SB_URL}</span>`;
     loadAdminData();
   } else {
@@ -1146,12 +1156,13 @@ function sSubTab(name,btn){document.querySelectorAll('#student-app .tab-pane').f
 
 // ── STUDENT DATA ──────────────────────────────────────────────────────────────
 async function loadStudData(){
+  const ROW_LIMIT=100000;
   const[{data:sess},{data:contracts},{data:transfers},{data:stakers},{data:expenses}]=await Promise.all([
-    SB.from('sessions').select('*').eq('student_id',me.id).order('date',{ascending:false}),
-    SB.from('contracts').select('*').eq('student_id',me.id).order('start_date',{ascending:false}),
-    SB.from('transfers').select('*').eq('student_id',me.id).order('date',{ascending:false}),
-    SB.from('stakers').select('*').order('name'),
-    SB.from('expenses').select('*').eq('student_id',me.id).order('created_at',{ascending:false})
+    SB.from('sessions').select('*').eq('student_id',me.id).order('date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('contracts').select('*').eq('student_id',me.id).order('start_date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('transfers').select('*').eq('student_id',me.id).order('date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('stakers').select('*').order('name').limit(ROW_LIMIT),
+    SB.from('expenses').select('*').eq('student_id',me.id).order('created_at',{ascending:false}).limit(ROW_LIMIT)
   ]);
   mySess=sess||[];myContracts=contracts||[];myTransfers=transfers||[];allStakers=stakers||[];myExpenses=expenses||[];
   // Load preferences from localStorage (keyed per student)
@@ -1433,12 +1444,20 @@ function renderStudTransfers(){
   if(!myTransfers.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
   let rows=sortRows([...myTransfers],studTransSort);
   batchVisibleTransIds=rows.map(t=>t.id);
-  const myName=(me?me.name:'').toLowerCase();
-  const studentTerms=['student'];
-  const isMe=v=>v&&(v.toLowerCase()===myName||studentTerms.includes(v.toLowerCase()));
-  const isSite=v=>v&&!isMe(v)&&v.toLowerCase()!=='backer'&&!/^(makaya|ned|radar poker)$/i.test(v);
+  const myName=me?me.name:'';
   const arrow=c=>studTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(studTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
   const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortStudTrans('${c}')">${l}${arrow(c)}</th>`;
+  // Summary totals (student perspective): money coming IN to student vs going OUT
+  let sumOut=0,sumIn=0,sumMove=0;
+  for(const t of rows){
+    if(t.type==='split')continue;
+    const amt=+t.amount||0;
+    const cls=classifyTransferColor(t.sender,t.receiver,'student');
+    if(cls==='amt-out')sumOut+=amt;
+    else if(cls==='amt-in')sumIn+=amt;
+    else sumMove+=amt;
+  }
+  const net=sumIn-sumOut;
   el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
     <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Type','ttype')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}<th>Notes</th><th></th></tr></thead>
     <tbody>${rows.map(t=>{
@@ -1452,11 +1471,16 @@ function renderStudTransfers(){
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${split?'b-act':'b-oth'}">${t.type}</span></td>
-      <td>${esc(snd)}</td><td>${esc(rcv)}</td>
+      <td>${partyBadge(snd,myName)}</td><td>${partyBadge(rcv,myName)}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
       <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
-    </tr>`;}).join('')}</tbody></table>`;
+    </tr>`;}).join('')}</tbody>
+    <tfoot><tr class="summary-row">
+      <td colspan="5" style="text-align:right;color:var(--muted2);font-size:11px;text-transform:uppercase;letter-spacing:.12em;">${rows.length} transfer${rows.length===1?'':'s'} &nbsp;·&nbsp; <span class="amt-in">In ${fm(sumIn)}</span> &nbsp;·&nbsp; <span class="amt-out">Out ${fm(sumOut)}</span>${sumMove?' &nbsp;·&nbsp; <span class="amt-move">Move '+fm(sumMove)+'</span>':''} &nbsp;·&nbsp; Net</td>
+      <td class="${net>=0?'amt-in':'amt-out'}">${(net>=0?'+':'')+fm(net)}</td>
+      <td colspan="2"></td>
+    </tr></tfoot></table>`;
 }
 
 function renderStudOptions(){
@@ -1530,17 +1554,36 @@ function removeOptionItem(type,val){
 
 // ── ADMIN DATA ────────────────────────────────────────────────────────────────
 async function loadAdminData(){
+  // Note: Supabase defaults to 1000 rows/query — explicitly set high limits so we get everything
+  const ROW_LIMIT=100000;
   const[{data:st},{data:se},{data:co},{data:sk},{data:tr},{data:pa},{data:bk},{data:ex}]=await Promise.all([
-    SB.from('students').select('*').order('created_at',{ascending:false}),
-    SB.from('sessions').select('*').order('date',{ascending:false}),
-    SB.from('contracts').select('*').order('start_date',{ascending:false}),
-    SB.from('stakers').select('*').order('name'),
-    SB.from('transfers').select('*').order('date',{ascending:false}),
-    SB.from('transfer_parties').select('*').order('name'),
-    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false}),
-    SB.from('expenses').select('*').order('created_at',{ascending:false})
+    SB.from('students').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('sessions').select('*').order('date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('contracts').select('*').order('start_date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('stakers').select('*').order('name').limit(ROW_LIMIT),
+    SB.from('transfers').select('*').order('date',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('transfer_parties').select('*').order('name').limit(ROW_LIMIT),
+    SB.from('bankroll_entries').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT),
+    SB.from('expenses').select('*').order('created_at',{ascending:false}).limit(ROW_LIMIT)
   ]);
   allStuds=st||[];allSess=se||[];allContracts=co||[];allStakers=sk||[];allTransfers=tr||[];allParties=pa||[];allBankroll=bk||[];allExpenses=ex||[];
+
+  // Backer-scoped admin: filter all data to students under this backer's contracts
+  if(backerScope){
+    const myStaker=allStakers.find(k=>k.name&&k.name.toLowerCase()===backerScope.toLowerCase());
+    if(myStaker){
+      const myStudentIds=new Set(allContracts.filter(c=>c.staker_id===myStaker.id).map(c=>c.student_id));
+      allStuds=allStuds.filter(s=>myStudentIds.has(s.id));
+      allSess=allSess.filter(s=>myStudentIds.has(s.student_id));
+      allContracts=allContracts.filter(c=>c.staker_id===myStaker.id);
+      allTransfers=allTransfers.filter(t=>t.student_id&&myStudentIds.has(t.student_id));
+      allExpenses=allExpenses.filter(e=>e.student_id&&myStudentIds.has(e.student_id));
+      allStakers=[myStaker];
+      allBankroll=[];
+    } else {
+      allStuds=[];allSess=[];allContracts=[];allTransfers=[];allExpenses=[];allStakers=[];allBankroll=[];
+    }
+  }
 
   // Populate student filter dropdowns
   const studOpts=[{value:'',label:'All students'},...allStuds.map(s=>({value:s.id,label:`#${s.id} — ${s.name}`}))]; 
@@ -1755,6 +1798,17 @@ function renderAdminTransfers(){
   rows=sortRows(rows,adminTransSort,sm);
   const arrow=c=>adminTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(adminTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
   const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortAdminTrans('${c}')">${l}${arrow(c)}</th>`;
+  // Summary totals (admin perspective): money LEAVING backer = "out", money RETURNING to backer = "in"
+  let sumOut=0,sumIn=0,sumMove=0;
+  for(const t of rows){
+    if(t.type==='split')continue;
+    const amt=+t.amount||0;
+    const cls=classifyTransferColor(t.sender,t.receiver,'admin');
+    if(cls==='amt-out')sumOut+=amt;
+    else if(cls==='amt-in')sumIn+=amt;
+    else sumMove+=amt;
+  }
+  const net=sumIn-sumOut;
   el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans-adm"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
     <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Type','ttype')}${th('Student','student')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}${th('Split Month','split_month')}<th>Notes</th><th></th></tr></thead>
     <tbody>${rows.map(t=>{
@@ -1767,12 +1821,17 @@ function renderAdminTransfers(){
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
       <td><span class="bdg ${isSplit?'b-act':'b-oth'}">${t.type}</span></td>
       <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${t.student_id}')">${esc(studName||'—')}</td>
-      <td>${esc(t.sender)}</td><td>${esc(t.receiver)}</td>
+      <td>${partyBadge(t.sender,studName)}</td><td>${partyBadge(t.receiver,studName)}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);">${t.split_month||'—'}</td>
       <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
       <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
-    </tr>`;}).join('')}</tbody></table>`;
+    </tr>`;}).join('')}</tbody>
+    <tfoot><tr class="summary-row">
+      <td colspan="6" style="text-align:right;color:var(--muted2);font-size:11px;text-transform:uppercase;letter-spacing:.12em;">${rows.length} transfer${rows.length===1?'':'s'} &nbsp;·&nbsp; <span class="amt-out">Out ${fm(sumOut)}</span> &nbsp;·&nbsp; <span class="amt-in">In ${fm(sumIn)}</span>${sumMove?' &nbsp;·&nbsp; <span class="amt-move">Move '+fm(sumMove)+'</span>':''} &nbsp;·&nbsp; Net</td>
+      <td class="${net>=0?'amt-in':'amt-out'}">${(net>=0?'+':'')+fm(net)}</td>
+      <td colspan="3"></td>
+    </tr></tfoot></table>`;
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
@@ -3018,19 +3077,47 @@ function parseBB(s){if(!s)return null;const t=s.trim(),nl=t.match(/^(\d+(?:\.\d+
 function calcBB100(sessions){let ws=0,th=0;for(const s of sessions){const bb=parseBB(s.stake_level),h=parseInt(s.hands_played)||0;if(bb&&h&&bb>0){ws+=(+s.profit||0)/bb;th+=h;}}return th===0?null:(ws/th)*100;}
 function toast(msg,type='ok'){const t=$('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),2800);}
 
+// ── TRANSFER PARTY HELPERS ───────────────────────────────────────────────────
+function isBackerName(v){
+  if(!v)return false;
+  const lc=String(v).toLowerCase();
+  if(lc==='backer')return true;
+  // Always recognize the well-known backers even when allStakers is scoped/missing
+  if(/^(radar poker|ned|makaya)$/.test(lc))return true;
+  return (allStakers||[]).some(s=>s.name&&s.name.toLowerCase()===lc);
+}
+function isStudentName(v,studName){
+  if(!v)return false;
+  const lc=String(v).toLowerCase();
+  if(lc==='student')return true;
+  if(studName&&lc===studName.toLowerCase())return true;
+  return (allStuds||[]).some(s=>s.name&&s.name.toLowerCase()===lc);
+}
+function partyKind(v,studName){
+  if(!v)return 'other';
+  if(isBackerName(v))return 'backer';
+  if(isStudentName(v,studName))return 'student';
+  const lc=String(v).toLowerCase();
+  if(lc==='bank'||lc==='crypto')return 'other';
+  return 'site';
+}
+function partyBadge(v,studName){
+  if(!v)return '<span style="color:var(--muted);">—</span>';
+  const k=partyKind(v,studName);
+  const cls=k==='backer'?'b-pty-backer':k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
+  return `<span class="bdg ${cls}">${esc(v)}</span>`;
+}
+
 // ── TRANSFER COLOR CLASSIFICATION ────────────────────────────────────────────
 function classifyTransferColor(sender,receiver,perspective){
-  const snd=(sender||'').toLowerCase(),rcv=(receiver||'').toLowerCase();
-  const backerNames=(allStakers||[]).map(s=>s.name.toLowerCase());
-  const isBacker=v=>backerNames.includes(v);
-  const sndIsBacker=isBacker(snd),rcvIsBacker=isBacker(rcv);
+  const sndIsBacker=isBackerName(sender),rcvIsBacker=isBackerName(receiver);
   if(!sndIsBacker&&!rcvIsBacker) return 'amt-move'; // internal move → orange
   if(perspective==='student'){
     if(sndIsBacker) return 'amt-in';  // backer sending → green (money in)
     if(rcvIsBacker) return 'amt-out'; // backer receiving → red (money out)
   } else { // admin perspective (inverted)
     if(rcvIsBacker) return 'amt-in';  // backer receiving → green (money returning)
-    if(sndIsBacker) return 'amt-out'; // backer sending → red (money going out)
+    if(sndIsBacker) return 'amt-out'; // backer sending → red (money leaving the backer)
   }
   return 'amt-move';
 }
