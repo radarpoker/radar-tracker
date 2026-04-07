@@ -469,7 +469,18 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
       <div class="card">
         <div class="card-hd">
           <div class="card-title">Transfers</div>
-          <button class="btn btn-p btn-sm" onclick="openTransferModal()">+ New Transfer</button>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <div class="cdd-wrap" style="width:130px;"><button class="cdd-trigger sm" id="s-flt-ttype-cdd" onclick="toggleCdd('s-flt-ttype-cdd','s-flt-ttype-menu')"><span id="s-flt-ttype-label">All types</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="s-flt-ttype-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('s-flt-ttype','','All types',this);renderStudTransfers()">All types</div>
+              <div class="cdd-opt" onclick="setCdd('s-flt-ttype','transfer','Transfers',this);renderStudTransfers()">Transfers</div>
+              <div class="cdd-opt" onclick="setCdd('s-flt-ttype','split','Splits',this);renderStudTransfers()">Splits</div>
+            </div></div>
+            <input type="hidden" id="s-flt-ttype">
+            <div id="st-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+            <button class="filter-btn" id="st-filter-btn" onclick="openFP('stransfer')">⊞ Filter</button>
+            <button class="btn btn-p btn-sm" onclick="openTransferModal()">+ New Transfer</button>
+          </div>
         </div>
         <div id="s-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
       </div>
@@ -1055,7 +1066,7 @@ let selFmts=new Set();
 let batchSelSess=new Set(),batchSelTrans=new Set(),batchEditType='',batchAction='',batchVisibleSessIds=[],batchVisibleTransIds=[];
 let curMode='live',loginMode='player';
 let idEntry='',pinEntry='';
-let activeFiltersS=[],activeFiltersA=[],activeFiltersAT=[],fpCtx='student';
+let activeFiltersS=[],activeFiltersA=[],activeFiltersAT=[],activeFiltersST=[],fpCtx='student';
 let studSessSort={col:'date',dir:'desc'},allSessSort={col:'date',dir:'desc'};
 let studTransSort={col:'date',dir:'desc'},adminTransSort={col:'date',dir:'desc'};
 let curTransferType='transfer';
@@ -1440,8 +1451,14 @@ function renderStudContract(){
 
 function renderStudTransfers(){
   const el=$('s-transfers-body');
-  if(!myTransfers.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
-  let rows=sortRows([...myTransfers],studTransSort);
+  if(!el)return;
+  const fltType=$('s-flt-ttype')?$('s-flt-ttype').value:'';
+  let rows=myTransfers||[];
+  if(fltType)rows=rows.filter(t=>t.type===fltType);
+  rows=applyFilters(rows,activeFiltersST);
+  renderChips('st-filter-chips','st-filter-btn','stransfer');
+  if(!rows.length){el.innerHTML=emptyHtml('↔','No transfers found.');return;}
+  rows=sortRows([...rows],studTransSort);
   batchVisibleTransIds=rows.map(t=>t.id);
   const myName=me?me.name:'';
   const arrow=c=>studTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(studTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
@@ -2902,7 +2919,7 @@ function drawPnL(cid,sessions,lineColor='#4ade80'){
 // ── FILTER SYSTEM ─────────────────────────────────────────────────────────────
 function openFP(ctx){fpCtx=ctx;$('fp-type').value='';$('fp-sub').innerHTML='';$('fp-overlay').classList.add('open');}
 function closeFP(){$('fp-overlay').classList.remove('open');}
-function srcRowsFP(){return fpCtx==='student'?modeSess():fpCtx==='admin'?allSess:allTransfers;}
+function srcRowsFP(){return fpCtx==='student'?modeSess():fpCtx==='admin'?allSess:fpCtx==='stransfer'?myTransfers:allTransfers;}
 function renderFPSub(){
   const type=$('fp-type').value,sub=$('fp-sub'),src=srcRowsFP();
   if(!type){sub.innerHTML='';return;}
@@ -2916,20 +2933,21 @@ function renderFPSub(){
   else if(type==='stake'){const ss=[...new Set(src.map(s=>s.stake_level).filter(Boolean))].sort();sub.innerHTML=ss.length?`<label class="fp-label">Select Stakes</label><div class="fp-opts">${ss.map(s=>`<div class="fp-opt" data-t="stake" data-v="${esc(s)}" data-l="${esc(s)}" onclick="this.classList.toggle('sel')">${esc(s)}</div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;">No stake levels logged yet</div>`;}
   else if(type==='duration'){const bkts=[{l:'< 2h',v:'lt2'},{l:'2h–4h',v:'2to4'},{l:'4h–6h',v:'4to6'},{l:'6h–8h',v:'6to8'},{l:'> 8h',v:'gt8'}],avail=bkts.filter(b=>src.some(s=>{const h=parseDur(s.duration);return b.v==='lt2'?h>0&&h<2:b.v==='2to4'?h>=2&&h<4:b.v==='4to6'?h>=4&&h<6:b.v==='6to8'?h>=6&&h<8:h>=8;}));sub.innerHTML=avail.length?`<label class="fp-label">Select Duration</label><div class="fp-opts">${avail.map(b=>`<div class="fp-opt" data-t="duration" data-v="${b.v}" data-l="${b.l}" onclick="this.classList.toggle('sel')">${b.l}</div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;">No duration data yet</div>`;}
 }
+function _afFor(ctx){return ctx==='student'?activeFiltersS:ctx==='admin'?activeFiltersA:ctx==='stransfer'?activeFiltersST:activeFiltersAT;}
 function applyFP(){
   const type=$('fp-type').value;if(!type){closeFP();return;}
-  const af=fpCtx==='student'?activeFiltersS:fpCtx==='admin'?activeFiltersA:activeFiltersAT;
+  const af=_afFor(fpCtx);
   if(type==='date'){const from=$('fp-from')?.value,to=$('fp-to')?.value;if(from||to)af.push({t:'date-range',v:{from,to},l:`${from||'start'} → ${to||'end'}`});}
   document.querySelectorAll('#fp-sub .fp-opt.sel').forEach(el=>af.push({t:el.dataset.t,v:el.dataset.v,l:el.dataset.l}));
-  closeFP();renderStudSessions();renderAllSess();renderAdminTransfers();
+  closeFP();renderStudSessions();renderAllSess();renderAdminTransfers();renderStudTransfers();
 }
 function removeFilter(ctx,idx){
-  const af=ctx==='student'?activeFiltersS:ctx==='admin'?activeFiltersA:activeFiltersAT;
-  af.splice(idx,1);renderStudSessions();renderAllSess();renderAdminTransfers();
+  const af=_afFor(ctx);
+  af.splice(idx,1);renderStudSessions();renderAllSess();renderAdminTransfers();renderStudTransfers();
 }
 function renderChips(chipsId,btnId,ctx){
   const el=$(chipsId),btn=$(btnId);if(!el)return;
-  const af=ctx==='student'?activeFiltersS:ctx==='admin'?activeFiltersA:activeFiltersAT;
+  const af=_afFor(ctx);
   el.innerHTML=af.map((f,i)=>`<span class="filter-chip">${f.l}<button onclick="removeFilter('${ctx}',${i})">×</button></span>`).join('');
   if(btn)btn.className='filter-btn'+(af.length?' active':'');
 }
