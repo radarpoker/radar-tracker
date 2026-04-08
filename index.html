@@ -147,6 +147,17 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .b-pty-site{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
 .b-pty-student{color:#4ade80;border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
 .b-pty-other{color:var(--muted2);border-color:var(--border2);background:rgba(255,255,255,.02)}
+/* BANKROLL ALERTS */
+.br-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);border:1px solid;}
+.br-pill.low{color:#fbbf24;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08)}
+.br-pill.crit{color:#f87171;border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.10);animation:brPulse 2.4s ease-in-out infinite}
+@keyframes brPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.stud-card.has-alert{border-color:rgba(248,113,113,.4)}
+.stud-card.has-warn{border-color:rgba(251,191,36,.35)}
+.alert-row{display:flex;align-items:center;gap:6px;padding:4px 7px;font-size:11px;color:var(--muted2);background:rgba(0,0,0,.3);border-left:2px solid var(--orange);margin-top:5px;border-radius:0 3px 3px 0}
+.alert-row.crit{border-left-color:var(--red)}
+.alert-row.low{border-left-color:#fbbf24}
+@media (max-width:1200px){.transfers-layout{grid-template-columns:1fr!important}#a-news-card{order:-1}}
 
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .18s}
@@ -534,6 +545,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     </div>
   </div>
   <div class="tabs">
+    <button class="tab-btn" id="a-tab-btn-dashboard" onclick="aTab('dashboard',this)" style="display:none;">Dashboard</button>
     <button class="tab-btn active" onclick="aTab('students',this)">Students</button>
     <button class="tab-btn" onclick="aTab('sessions',this)">All Sessions</button>
     <button class="tab-btn" onclick="aTab('analytics',this)">Analytics</button>
@@ -543,6 +555,11 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <button class="tab-btn" onclick="aTab('settings',this)">Settings</button>
   </div>
   <div class="page">
+
+    <!-- DASHBOARD TAB (backer-scoped admin only) -->
+    <div class="tab-pane" id="a-tab-dashboard">
+      <div id="a-dash-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+    </div>
 
     <!-- STUDENTS TAB -->
     <div class="tab-pane active" id="a-tab-students">
@@ -601,6 +618,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
 
     <!-- TRANSFERS TAB -->
     <div class="tab-pane" id="a-tab-transfers">
+      <div class="transfers-layout" style="display:grid;grid-template-columns:1fr 320px;gap:1rem;">
       <div class="card">
         <div class="card-hd">
           <div class="card-title">All Transfers</div>
@@ -621,6 +639,12 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
         </div>
         <div id="a-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
       </div>
+      <!-- News feed sidebar -->
+      <div class="card" id="a-news-card">
+        <div class="card-hd"><div class="card-title">📰 Activity Feed</div><span style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;">last 48h</span></div>
+        <div id="a-news-feed" style="padding:.5rem;max-height:600px;overflow-y:auto;"></div>
+      </div>
+      </div><!-- /transfers-layout -->
     </div>
 
     <!-- ROSTER TAB -->
@@ -706,13 +730,8 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
           <div class="fmt-chip fmt-add" onclick="addCustomFormat()" title="Add custom format">+</div>
         </div>
       </div>
-      <div class="fld"><label>Stake Level</label>
-        <div class="cdd-wrap">
-          <button class="cdd-trigger" id="f-stake-cdd" onclick="toggleCdd('f-stake-cdd','f-stake-menu')">
-            <span id="f-stake-label" style="color:var(--muted2);">Select stake…</span><span class="cdd-arrow">▾</span>
-          </button>
-          <div class="cdd-menu" id="f-stake-menu" style="display:none;"></div>
-        </div>
+      <div class="fld"><label>Stake Level<span style="color:var(--muted);font-weight:400;font-size:10px;margin-left:6px;">click to toggle, multi-select</span></label>
+        <div class="fmt-chips" id="f-stake-chips" style="min-height:32px;align-items:center;"></div>
         <input type="hidden" id="f-stake">
       </div>
       <div class="fld" id="f-rb-dest-wrap" style="display:none;"><label>Rakeback Destination</label>
@@ -726,8 +745,8 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
       </div>
     </div>
     <div class="fr three">
-      <div class="fld"><label>Buy In ($)</label><input type="number" id="f-buyin" placeholder="0" oninput="calcRes()"></div>
-      <div class="fld"><label>Cash Out ($)</label><input type="number" id="f-cashout" placeholder="0" oninput="calcRes()"></div>
+      <div class="fld"><label id="f-buyin-label">Buy In ($)</label><input type="number" id="f-buyin" placeholder="0" oninput="calcRes()" step="0.01"></div>
+      <div class="fld"><label id="f-cashout-label">Cash Out ($)</label><input type="number" id="f-cashout" placeholder="0" oninput="calcRes()" step="0.01"></div>
       <div class="fld"><label>Result</label><input type="text" id="f-result" readonly placeholder="—"></div>
     </div>
     <div class="fr">
@@ -1132,6 +1151,17 @@ function doAdminLogin(){
     const badge=document.querySelector('#admin-app .tbadge.admin');
     if(badge)badge.textContent=backerScope?`Admin · ${backerScope}`:'Admin';
     $('a-conn-info').innerHTML=`URL: <span style="color:var(--text)">${SB_URL}</span>`;
+    // Backer admins land on Dashboard; master admin lands on Students
+    document.querySelectorAll('#admin-app .tab-pane').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('#admin-app .tab-btn').forEach(b=>b.classList.remove('active'));
+    if(backerScope){
+      $('a-tab-dashboard').classList.add('active');
+      const db=$('a-tab-btn-dashboard');if(db){db.classList.add('active');db.style.display='';}
+    } else {
+      $('a-tab-students').classList.add('active');
+      const sb=document.querySelector('#admin-app .tab-btn[onclick*="\'students\'"]');
+      if(sb)sb.classList.add('active');
+    }
     loadAdminData();
   } else {
     const err=$('login-err');err.textContent='Incorrect PIN';pinEntry='';updatePin();setTimeout(()=>err.textContent='',2500);
@@ -1202,16 +1232,7 @@ function populateSessionDataLists(){
   if(vMenu){
     vMenu.innerHTML=allVenues.map(v=>`<div class="cdd-opt" onclick="setCdd('f-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('');
   }
-  // Stake dropdown — static list for online, session-derived for live
-  const stakeMenu=$('f-stake-menu');
-  if(stakeMenu){
-    const opts=isLive
-      ?[...new Set([...myStakes,...mySess.map(s=>s.stake_level).filter(s=>s&&s!=='Rakeback')])].sort((a,b)=>stakeVal(a)-stakeVal(b))
-      :ONLINE_STAKES;
-    const rbOpt=`<div class="cdd-opt" onclick="setCdd('f-stake','Rakeback','Rakeback',this);toggleRakeback(true)"><span class="bdg" style="background:var(--green);margin-right:4px;">Rakeback</span></div>`;
-    const stakeOpts=opts.map(s=>`<div class="cdd-opt" onclick="setCdd('f-stake','${s}','${s}',this);toggleRakeback(false)"><span class="bdg ${skCls(s)}" style="margin-right:4px;">${s}</span></div>`).join('');
-    stakeMenu.innerHTML=rbOpt+stakeOpts;
-  }
+  renderStakeChips();
   // Rakeback destination dropdown — venues + stakers
   const rbMenu=$('f-rb-dest-menu');
   if(rbMenu){
@@ -1333,8 +1354,10 @@ function renderStudSessions(){
       const tHands=sRows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
       const dur=playType==='online'?(tHands>0?tHands.toLocaleString()+' hands':'—'):(tHrs>0?tHrs.toFixed(1)+'h':'—');
       const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+      const buyLbl=playType==='online'?'Bal Start':'Buy-in';
+      const cashLbl=playType==='online'?'Bal End':'Cash-out';
       return`<table>
-        <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)"></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+        <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)"></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
         <tbody>${sRows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
         <tfoot><tr class="summary-row">
           <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;">${sRows.length} sessions</td>
@@ -1367,9 +1390,11 @@ function renderStudSessions(){
   const tHrs=rows.reduce((a,s)=>a+parseDur(s.duration),0),tHands=rows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
   const dur=curMode==='online'?(tHands>0?tHands.toLocaleString()+' hands':'—'):(tHrs>0?tHrs.toFixed(1)+'h':'—');
   const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+  const buyLbl=curMode==='online'?'Bal Start':curMode==='live'?'Buy-in':'In';
+  const cashLbl=curMode==='online'?'Bal End':curMode==='live'?'Cash-out':'Out';
   el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
     <table>
-    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
     <tbody>${rows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
     <tfoot><tr class="summary-row">
       <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;">${rows.length} sessions</td>
@@ -1644,6 +1669,17 @@ async function loadAdminData(){
   try{renderAnalyticsTab();}catch(e){console.error('renderAnalyticsTab',e);}
   try{renderRoster();}catch(e){console.error('renderRoster',e);}
   try{renderAdminTransfers();}catch(e){console.error('renderAdminTransfers',e);}
+  try{renderNewsFeed();}catch(e){console.error('renderNewsFeed',e);}
+  // Backer-scoped admin gets the Dashboard tab as their landing page
+  const dashBtn=$('a-tab-btn-dashboard');
+  if(dashBtn){
+    if(backerScope){
+      dashBtn.style.display='';
+      try{renderBackerDashboard();}catch(e){console.error('renderBackerDashboard',e);}
+    } else {
+      dashBtn.style.display='none';
+    }
+  }
   try{renderAdminExpenses();}catch(e){console.error('renderAdminExpenses',e);}
   try{renderStakersList();}catch(e){console.error('renderStakersList',e);}
 }
@@ -1719,9 +1755,14 @@ function renderAllSess(){
   const tBuy=sum(rows,'buy_in'),tCash=sum(rows,'cash_out'),tProfit=sum(rows,'profit');
   const tHrs=rows.reduce((a,s)=>a+parseDur(s.duration),0),tHands=rows.reduce((a,s)=>a+(parseInt(s.hands_played)||0),0);
   const pc=tProfit>0?'pp':tProfit<0?'pn':'';
+  // Column labels: when filter is online-only, show "Bal Start / Bal End" (online buyin = bankroll on site).
+  // When live-only, show "Buy-in / Cash-out" (live buyin = chips on the table).
+  // Mixed: neutral "In / Out".
+  const buyLbl=fltType==='online'?'Bal Start':fltType==='live'?'Buy-in':'In';
+  const cashLbl=fltType==='online'?'Bal End':fltType==='live'?'Cash-out':'Out';
   el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess-adm"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
     <table>
-    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Student','student')}${th('Type','type')}${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th('Buy-in','buy_in')}${th('Cash-out','cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
+    <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Student','student')}${th('Type','type')}${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
     <tbody>${rows.map(s=>sessRow(s,true,sm,true)).join('')}</tbody>
     <tfoot><tr class="summary-row">
       <td></td><td style="color:var(--muted2);font-size:11px;text-transform:uppercase;" colspan="2">${rows.length} sessions</td>
@@ -1791,10 +1832,15 @@ function renderRoster(){
     const ss=sessMap[s.id]||[],pt=s.play_types||'live';
     const lnet=sum(ss.filter(x=>x.play_type==='live'),'profit');
     const onet=sum(ss.filter(x=>x.play_type==='online'),'profit');
-    return`<div class="stud-card" onclick="openStudInfo('${s.id}')">
+    const alerts=bankrollAlerts(s.id);
+    const hasCrit=alerts.some(a=>a.severity==='critical');
+    const hasLow=alerts.some(a=>a.severity==='low');
+    const cardCls=hasCrit?'stud-card has-alert':hasLow?'stud-card has-warn':'stud-card';
+    const alertHtml=alerts.length?alerts.slice(0,3).map(a=>`<div class="alert-row ${a.severity==='critical'?'crit':'low'}" title="Stake ${esc(a.stake)} · 1 BI = ${fm(a.bi)}">${a.severity==='critical'?'⚠':'!'} ${esc(a.venue)} ${fm(a.balance)} (${a.buyIns} BI)</div>`).join(''):'';
+    return`<div class="${cardCls}" onclick="openStudInfo('${s.id}')">
       <div class="stud-top"><div>
         <div class="stud-id">${s.id}</div>
-        <div class="stud-name">${esc(s.name)}</div>
+        <div class="stud-name">${esc(s.name)} ${hasCrit?'<span class="br-pill crit">low BR</span>':hasLow?'<span class="br-pill low">low BR</span>':''}</div>
         <div class="stud-meta">${ss.length} sessions</div>
         <div class="type-badges">${pt!=='online'?'<span class="bdg b-live">Live</span>':''}${pt!=='live'?'<span class="bdg b-online">Online</span>':''}</div>
       </div><span class="bdg ${s.active?'b-act':'b-off'}">${s.active?'Active':'Inactive'}</span></div>
@@ -1802,6 +1848,7 @@ function renderRoster(){
         ${pt!=='online'?`<div class="stud-pnl-blk"><div class="stud-pnl-lbl">Live P&L</div><div class="stud-pnl-val ${lnet>0?'pp':lnet<0?'pn':''}">${fm(lnet)}</div></div>`:''}
         ${pt!=='live'?`<div class="stud-pnl-blk"><div class="stud-pnl-lbl">Online P&L</div><div class="stud-pnl-val ${onet>0?'pp':onet<0?'pn':''}">${fm(onet)}</div></div>`:''}
       </div>
+      ${alertHtml}
       <div class="stud-acts" onclick="event.stopPropagation()">
         <button class="btn btn-g btn-sm" onclick="openAdmSessModal('${s.id}')">+ Session</button>
         <button class="btn btn-g btn-sm" onclick="openContractModal('${s.id}')">+ Contract</button>
@@ -1862,6 +1909,149 @@ function renderAdminTransfers(){
       <td class="${net>=0?'amt-in':'amt-out'}">${(net>=0?'+':'')+fm(net)}</td>
       <td colspan="3"></td>
     </tr></tfoot></table>`;
+}
+
+// ── BACKER DASHBOARD ──────────────────────────────────────────────────────────
+// Top-of-portal view for a backer-scoped admin: clear picture of their financial
+// exposure, per-student liquidity, PnL, and filter handles.
+function renderBackerDashboard(){
+  const el=$('a-dash-body');if(!el)return;
+  const backerLabel=backerScope||'All Backers';
+  // Per-student summary in current scope (allStuds is already filtered when scoped)
+  const rows=allStuds.map(s=>{
+    const liveCS=getStudentContractStats(s.id,'live');
+    const onlineCS=getStudentContractStats(s.id,'online');
+    const ss=allSess.filter(x=>x.student_id===s.id);
+    const lastSess=ss.length?ss.map(x=>x.date).sort().pop():null;
+    const expo=studentExposure(s.id);
+    const totalNetPL=liveCS.netProfit+onlineCS.netProfit;
+    const totalMakeup=(liveCS.makeup||0)+(onlineCS.makeup||0);
+    const totalStakerCut=(liveCS.stakerTake||0)+(onlineCS.stakerTake||0);
+    const totalStudentCut=(liveCS.studentTake||0)+(onlineCS.studentTake||0);
+    return{s,liveCS,onlineCS,lastSess,expo,totalNetPL,totalMakeup,totalStakerCut,totalStudentCut,sessions:ss.length};
+  }).sort((a,b)=>b.totalNetPL-a.totalNetPL);
+  // Aggregates
+  const totalNet=rows.reduce((a,r)=>a+r.totalNetPL,0);
+  const totalMakeup=rows.reduce((a,r)=>a+r.totalMakeup,0);
+  const totalStakerEarnings=rows.reduce((a,r)=>a+r.totalStakerCut,0);
+  const totalLiquidity=rows.reduce((a,r)=>a+r.expo.totalBalance,0);
+  const totalAlerts=rows.reduce((a,r)=>a+r.expo.alerts.length,0);
+  // Build the layout
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <h2 style="font-family:var(--mono);font-size:18px;letter-spacing:.06em;color:var(--accent);margin:0;">${esc(backerLabel)} — Dashboard</h2>
+        <div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em;margin-top:4px;">${rows.length} student${rows.length===1?'':'s'} under contract</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted2);">As of ${new Date().toLocaleDateString()}</div>
+    </div>
+    <div class="stats-grid" style="margin-bottom:1.25rem;">
+      <div class="sc"><div class="sc-lbl">Net P&L (all students)</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
+      <div class="sc"><div class="sc-lbl">Backer Earnings (your cut)</div><div class="sc-val ${totalStakerEarnings>0?'pos':'neu'}">${fm(totalStakerEarnings)}</div></div>
+      <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
+      <div class="sc"><div class="sc-lbl">Live Bankroll Float</div><div class="sc-val neu">${fm(totalLiquidity)}</div></div>
+      <div class="sc"><div class="sc-lbl">Active Alerts</div><div class="sc-val ${totalAlerts>0?'neg':'pos'}">${totalAlerts}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-hd"><div class="card-title">Per-Student Exposure</div></div>
+      <table>
+        <thead><tr>
+          <th>Student</th><th>Type</th><th>Sessions</th><th>Net P&L</th><th>Makeup</th><th>Your Cut</th><th>Liquidity</th><th>Last Session</th><th>Alerts</th>
+        </tr></thead>
+        <tbody>${rows.map(r=>{
+          const pt=r.s.play_types||'live';
+          const liveBlk=pt!=='online'?`<span class="bdg b-live">L</span>`:'';
+          const onlineBlk=pt!=='live'?`<span class="bdg b-online">O</span>`:'';
+          const alertCt=r.expo.alerts.length;
+          const alertBadge=alertCt?`<span class="br-pill ${r.expo.alerts.some(a=>a.severity==='critical')?'crit':'low'}">${alertCt}</span>`:'<span style="color:var(--muted);">—</span>';
+          const stale=r.lastSess?Math.floor((new Date()-new Date(r.lastSess+'T12:00:00'))/(86400*1000)):null;
+          const staleClr=stale==null?'var(--muted)':stale<=3?'var(--accent)':stale<=7?'var(--text)':stale<=30?'var(--muted2)':'var(--red)';
+          return`<tr style="cursor:pointer;" onclick="openStudInfo('${r.s.id}')">
+            <td style="font-weight:600;color:var(--accent);">${esc(r.s.name)} <span style="color:var(--muted);font-weight:400;font-size:11px;">#${r.s.id}</span></td>
+            <td>${liveBlk} ${onlineBlk}</td>
+            <td style="color:var(--muted2);">${r.sessions}</td>
+            <td class="${r.totalNetPL>0?'pp':r.totalNetPL<0?'pn':''}" style="font-weight:600;">${(r.totalNetPL>=0?'+':'')+fm(r.totalNetPL)}</td>
+            <td style="color:${r.totalMakeup>0?'var(--red)':'var(--muted2)'}">${r.totalMakeup>0?fm(r.totalMakeup):'—'}</td>
+            <td style="color:var(--accent);">${fm(r.totalStakerCut)}</td>
+            <td style="color:var(--muted2);">${fm(r.expo.totalBalance)}</td>
+            <td style="font-size:11px;color:${staleClr};">${r.lastSess?fmtDate(r.lastSess)+(stale!=null?' <span style="color:var(--muted);">('+stale+'d)</span>':''):'—'}</td>
+            <td>${alertBadge}</td>
+          </tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr class="summary-row">
+          <td colspan="3" style="font-size:11px;text-transform:uppercase;color:var(--muted2);">${rows.length} students</td>
+          <td class="${totalNet>0?'pp':totalNet<0?'pn':''}" style="font-weight:700;">${(totalNet>=0?'+':'')+fm(totalNet)}</td>
+          <td style="color:${totalMakeup>0?'var(--red)':'var(--muted2)'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</td>
+          <td style="color:var(--accent);font-weight:700;">${fm(totalStakerEarnings)}</td>
+          <td>${fm(totalLiquidity)}</td>
+          <td></td><td>${totalAlerts}</td>
+        </tr></tfoot>
+      </table>
+    </div>
+    ${totalAlerts>0?`<div class="card" style="margin-bottom:1rem;border-color:rgba(248,113,113,.3);">
+      <div class="card-hd"><div class="card-title">⚠ Bankroll Alerts</div></div>
+      <div style="padding:.5rem;">
+        ${rows.flatMap(r=>r.expo.alerts.map(a=>`<div class="alert-row ${a.severity==='critical'?'crit':'low'}" style="margin-bottom:4px;"><strong>${esc(r.s.name)}</strong> · ${esc(a.venue)} · <strong style="color:${a.severity==='critical'?'var(--red)':'#fbbf24'};">${a.buyIns} BI</strong> <span style="color:var(--muted2);">(${fm(a.balance)} @ ${esc(a.stake)})</span></div>`)).join('')}
+      </div>
+    </div>`:''}
+  `;
+}
+
+// ── NEWS / ACTIVITY FEED ──────────────────────────────────────────────────────
+// Compiles 5-15 events from the last 48h: huge wins/losses, low bankroll, big transfers,
+// new contracts, makeup cleared, etc. Designed for backer-facing scoped admin too.
+function renderNewsFeed(){
+  const el=$('a-news-feed');if(!el)return;
+  const events=[];
+  const now=new Date();
+  const cutoff=new Date(now.getTime()-48*60*60*1000);
+  const isoCutoff=cutoff.toISOString().slice(0,10);
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  // Big sessions in last 48h (>= $1500 abs profit OR >= 5 BI for the stake)
+  for(const s of allSess){
+    if(!s.date||s.date<isoCutoff)continue;
+    const p=+s.profit||0;if(Math.abs(p)<800)continue;
+    const stake=(s.stake_level||'').split(',').map(x=>x.trim()).filter(Boolean)[0];
+    const bi=buyInValue(stake);
+    const buyIns=bi?Math.abs(p)/bi:null;
+    const big=Math.abs(p)>=1500||(buyIns&&buyIns>=5);
+    if(!big)continue;
+    events.push({
+      ts:s.date,kind:p>0?'win':'loss',
+      icon:p>0?'🔥':'💀',
+      pri:Math.abs(p),
+      html:`<strong>${esc(sm[s.student_id]||'?')}</strong> ${p>0?'won':'lost'} <strong style="color:${p>0?'var(--accent)':'var(--red)'};">${fm(Math.abs(p))}</strong> at ${esc(s.venue)}${buyIns?' <span style="color:var(--muted2);">('+buyIns.toFixed(1)+' BI)</span>':''}<div style="font-size:10px;color:var(--muted);">${fmtDate(s.date)} · ${esc(stake||'')}</div>`
+    });
+  }
+  // Low bankroll alerts (always shown)
+  for(const s of allStuds){
+    const alerts=bankrollAlerts(s.id);
+    for(const a of alerts){
+      events.push({
+        ts:'9999',kind:'br',
+        icon:a.severity==='critical'?'⚠':'⚡',
+        pri:a.severity==='critical'?9e9:1e9,
+        html:`<strong>${esc(s.name)}</strong> low BR at ${esc(a.venue)} — <strong style="color:${a.severity==='critical'?'var(--red)':'#fbbf24'};">${a.buyIns} BI</strong> <span style="color:var(--muted2);">(${fm(a.balance)} @ ${esc(a.stake)})</span>`
+      });
+    }
+  }
+  // Big transfers in last 48h (>= $2000)
+  for(const t of allTransfers){
+    if(!t.date||t.date<isoCutoff)continue;
+    const amt=+t.amount||0;if(amt<2000)continue;
+    const sn=sm[t.student_id]||'?';
+    events.push({
+      ts:t.date,kind:'xfer',
+      icon:'⇄',
+      pri:amt/10,
+      html:`<strong>${esc(sn)}</strong> ${esc(t.sender||'?')} → ${esc(t.receiver||'?')} <strong>${fm(amt)}</strong><div style="font-size:10px;color:var(--muted);">${fmtDate(t.date)}</div>`
+    });
+  }
+  // Sort: low-BR alerts first (highest priority), then by date desc
+  events.sort((a,b)=>(b.pri||0)-(a.pri||0));
+  const top=events.slice(0,12);
+  if(!top.length){el.innerHTML='<div style="padding:1rem;color:var(--muted);font-size:12px;text-align:center;">No notable activity in the last 48 hours.</div>';return;}
+  el.innerHTML=top.map(ev=>`<div style="padding:.6rem .75rem;border-bottom:1px solid var(--border);font-size:12px;line-height:1.45;display:flex;gap:8px;align-items:flex-start;"><span style="font-size:14px;flex-shrink:0;">${ev.icon}</span><div style="flex:1;min-width:0;">${ev.html}</div></div>`).join('');
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
@@ -2020,8 +2210,9 @@ function editSess(id){
   $('f-date').value=s.date;
   // set venue cdd
   const vl=$('f-venue-label');if(vl){vl.textContent=s.venue||'';vl.style.color='var(--text)';}$('f-venue').value=s.venue||'';
-  // set stake cdd
-  const sl=$('f-stake-label');if(sl){sl.textContent=s.stake_level||'';sl.style.color='var(--text)';}$('f-stake').value=s.stake_level||'';
+  // set stakes (chip multi-select)
+  $('f-stake').value=s.stake_level||'';
+  renderStakeChips(s.play_type||'live');
   // handle rakeback edit
   if(s.stake_level==='Rakeback'){
     toggleRakeback(true);
@@ -2067,12 +2258,14 @@ async function saveSess(){
   else{sid=me.id;ptype=curMode;}
   if(!sid){toast('Select a student','err');return;}
   const stakeVal=$('f-stake').value.trim()||null;
-  const isRB=stakeVal==='Rakeback';
+  // Rakeback is exclusive — chip selector enforces this, but tolerate legacy edits
+  const isRB=stakeVal==='Rakeback'||(stakeVal||'').split(',').map(s=>s.trim()).includes('Rakeback');
   const rbDest=isRB?$('f-rb-dest').value.trim():'';
   let notes=$('f-notes').value.trim()||null;
   if(isRB&&rbDest)notes=notes?`Rakeback to: ${rbDest} | ${notes}`:`Rakeback to: ${rbDest}`;
   else if(isRB&&!notes)notes='Rakeback';
-  const row={student_id:sid,play_type:ptype,date,venue,game_type:isRB?null:([...selFmts].join(', ')||null),stake_level:stakeVal,duration:isRB?null:(ptype==='live'?(parseFloat($('f-dur').value)||null):null),hands_played:isRB?null:(ptype==='online'?(parseInt($('f-hands').value)||null):null),buy_in:buyin,cash_out:cashout,profit:cashout-buyin,notes};
+  const round2=n=>Math.round(n*100)/100;
+  const row={student_id:sid,play_type:ptype,date,venue,game_type:isRB?null:([...selFmts].join(', ')||null),stake_level:stakeVal,duration:isRB?null:(ptype==='live'?(parseFloat($('f-dur').value)||null):null),hands_played:isRB?null:(ptype==='online'?(parseInt($('f-hands').value)||null):null),buy_in:round2(buyin),cash_out:round2(cashout),profit:round2(cashout-buyin),notes};
   const btn=$('sess-save-btn');btn.textContent='Saving…';btn.disabled=true;
   const{error}=editSessId?await SB.from('sessions').update(row).eq('id',editSessId):await SB.from('sessions').insert([row]);
   btn.textContent=editSessId?'Update Session':'Save Session';btn.disabled=false;
@@ -2092,10 +2285,10 @@ function resetSessForm(){
   $('f-date').value=new Date().toISOString().slice(0,10);
   ['f-venue','f-stake','f-buyin','f-cashout','f-dur','f-hands','f-notes'].forEach(id=>{const el=$(id);if(el)el.value='';});
   const vl=$('f-venue-label');if(vl){vl.textContent='Select venue…';vl.style.color='var(--muted2)';}
-  const sl=$('f-stake-label');if(sl){sl.textContent='Select stake…';sl.style.color='var(--muted2)';}
   toggleRakeback(false);
+  renderStakeChips();
   const r=$('f-result');r.value='';r.style.color='var(--muted2)';
-  document.querySelectorAll('.fmt-chip').forEach(c=>c.className='fmt-chip');selFmts.clear();
+  document.querySelectorAll('#fmt-chips-container .fmt-chip').forEach(c=>{if(!c.classList.contains('fmt-add'))c.className='fmt-chip'+(c.classList.contains('fmt-chip-custom')?' fmt-chip-custom':'');});selFmts.clear();
 }
 
 // ── STUDENT CRUD ──────────────────────────────────────────────────────────────
@@ -2433,8 +2626,29 @@ async function saveTransfer(){
   const noteParts=[];
   if(dest)noteParts.push(`Dest: ${dest}`);
   if(userNotes)noteParts.push(userNotes);
+  // Pin transfer to a contract when we can — eliminates the venue heuristic later.
+  // If sender/receiver is a backer, look up the contract that backer has with this student
+  // for the matching play_type (inferred from the venue side).
+  let contract_id=null;
+  if(sid){
+    const contracts=(isAdmin?allContracts:myContracts).filter(c=>c.student_id===sid&&c.active!==false);
+    if(contracts.length===1)contract_id=contracts[0].id;
+    else if(contracts.length>1){
+      const stkLC=allStakers.map(k=>k.name.toLowerCase());
+      const backerName=stkLC.includes((sender||'').toLowerCase())?sender:stkLC.includes((receiver||'').toLowerCase())?receiver:null;
+      if(backerName){
+        const otherSide=stkLC.includes((sender||'').toLowerCase())?receiver:sender;
+        // Try to match other side to a venue → infer play_type
+        const sess=(isAdmin?allSess:mySess).find(s=>s.student_id===sid&&s.venue&&s.venue.toLowerCase()===(otherSide||'').toLowerCase());
+        const inferredPT=sess?sess.play_type:null;
+        const sk=allStakers.find(k=>k.name.toLowerCase()===backerName.toLowerCase());
+        const c=contracts.find(c=>c.staker_id===sk.id&&(!inferredPT||c.play_type===inferredPT||c.play_type==='both'));
+        if(c)contract_id=c.id;
+      }
+    }
+  }
   const row={
-    type:curTransferType,student_id:sid||null,date,sender,receiver,amount,
+    type:curTransferType,student_id:sid||null,contract_id,date,sender,receiver,amount,
     notes:noteParts.join(' | ')||null,
     ...(curTransferType==='split'?{split_month:$('t-split-month').value,student_cut:parseFloat($('t-stud-cut').value)||null,staker_cut:parseFloat($('t-stak-cut').value)||null}:{})
   };
@@ -2708,7 +2922,61 @@ function buildCddMenu(menuId,items,hiddenId,onChange){
 }
 
 // ── FORMAT CHIPS ──────────────────────────────────────────────────────────────
-function toggleDurField(ptype){$('f-dur-wrap').style.display=ptype==='online'?'none':'';$('f-hands-wrap').style.display=ptype==='online'?'':'none';}
+function toggleDurField(ptype){
+  $('f-dur-wrap').style.display=ptype==='online'?'none':'';
+  $('f-hands-wrap').style.display=ptype==='online'?'':'none';
+  // Relabel buy_in/cash_out fields based on play type — for online these are actually
+  // bankroll-on-site running balances, NOT chip-on-table buy-ins.
+  const bL=$('f-buyin-label'),cL=$('f-cashout-label');
+  if(bL)bL.textContent=ptype==='online'?'Bankroll Start ($)':'Buy In ($)';
+  if(cL)cL.textContent=ptype==='online'?'Bankroll End ($)':'Cash Out ($)';
+  // Re-render stake chips with the right pool
+  renderStakeChips(ptype);
+}
+// Stake chip multi-select — replaces the old single-pick dropdown.
+// Stores selection as a comma-separated string in the hidden #f-stake input
+// so the existing DB column / save flow keeps working.
+function getStakeChipPool(ptype){
+  const isLive=(ptype||(isAdmin?$('f-play-type-adm').value:(curMode==='online'?'online':(me&&me.play_types==='online'?'online':'live'))))==='live';
+  if(isLive){
+    if(isAdmin){
+      // Admin: show stakes seen across all sessions for live + the student's saved stakes
+      return [...new Set(allSess.filter(s=>s.play_type==='live').map(s=>s.stake_level).filter(s=>s&&s!=='Rakeback').flatMap(s=>s.split(',').map(x=>x.trim())).filter(Boolean))].sort((a,b)=>stakeVal(a)-stakeVal(b));
+    }
+    return [...new Set([...(myStakes||[]),...mySess.filter(s=>s.play_type==='live').flatMap(s=>(s.stake_level||'').split(',').map(x=>x.trim())).filter(s=>s&&s!=='Rakeback')])].sort((a,b)=>stakeVal(a)-stakeVal(b));
+  }
+  return ONLINE_STAKES;
+}
+function renderStakeChips(ptype){
+  const wrap=$('f-stake-chips');if(!wrap)return;
+  const pool=getStakeChipPool(ptype);
+  const cur=new Set(($('f-stake').value||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const isRB=cur.has('Rakeback');
+  const chips=pool.map(s=>{
+    const on=cur.has(s);
+    return `<span class="fmt-chip${on?' on':''}" data-stake="${esc(s)}" onclick="toggleStakeChip(this)" style="${on?'background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);':''}"><span class="bdg ${skCls(s)}" style="margin-right:4px;border:none;background:transparent;padding:0;">${esc(s)}</span></span>`;
+  }).join('');
+  const rbChip=`<span class="fmt-chip${isRB?' on':''}" data-stake="Rakeback" onclick="toggleStakeChip(this)" style="${isRB?'background:rgba(74,222,128,.18);border-color:var(--accent);color:var(--accent);':''}">Rakeback</span>`;
+  wrap.innerHTML=chips+rbChip;
+}
+function toggleStakeChip(el){
+  const v=el.dataset.stake;
+  const cur=new Set(($('f-stake').value||'').split(',').map(s=>s.trim()).filter(Boolean));
+  // Rakeback is exclusive — picking it clears everything else, picking anything else clears Rakeback
+  if(v==='Rakeback'){
+    if(cur.has('Rakeback')){cur.clear();}
+    else{cur.clear();cur.add('Rakeback');}
+    toggleRakeback(cur.has('Rakeback'));
+  } else {
+    cur.delete('Rakeback');
+    toggleRakeback(false);
+    if(cur.has(v))cur.delete(v);else cur.add(v);
+  }
+  // Sort numerically (smallest stake first) for stable display
+  const sorted=[...cur].sort((a,b)=>stakeVal(a)-stakeVal(b));
+  $('f-stake').value=sorted.join(', ');
+  renderStakeChips();
+}
 function toggleRakeback(on){
   $('f-rb-dest-wrap').style.display=on?'':'none';
   if(!on){$('f-rb-dest').value='';$('f-rb-dest-label').textContent='Select destination…';$('f-rb-dest-label').style.color='var(--muted2)';}
@@ -3096,13 +3364,13 @@ function sessRow(s,showStud,sm,showType){
     <td style="font-weight:500;">${esc(s.venue)}</td>
     <td>${fmts.map(f=>`<span class="bdg ${bCls(f)}">${f}</span>`).join(' ')||'—'}</td>
     <td style="white-space:nowrap;">${stakesBadges(s.stake_level,s.play_type)}</td>
-    <td>${fm(s.buy_in)}</td><td>${fm(s.cash_out)}</td>
+    <td title="${s.play_type==='online'?'Bankroll on site at start':'Chips on table at start'}">${fm(s.buy_in)}</td><td title="${s.play_type==='online'?'Bankroll on site at end':'Chips on table at end'}">${fm(s.cash_out)}</td>
     <td class="${pc}" style="font-weight:500;">${ps}</td>
     <td style="color:var(--muted2);">${durCell}</td>
     <td style="display:flex;gap:3px;"><button class="ib" onclick="editSess('${s.id}')">✎</button><button class="ib del" onclick="delSess('${s.id}')">✕</button></td>
   </tr>`;
 }
-function calcRes(){const b=parseFloat($('f-buyin').value)||0,c=parseFloat($('f-cashout').value)||0,p=c-b,el=$('f-result');el.value=p!==0?(p>0?'+':'')+'$'+Math.abs(p):'—';el.style.color=p>0?'var(--accent)':p<0?'var(--red)':'var(--muted2)';}
+function calcRes(){const b=parseFloat($('f-buyin').value)||0,c=parseFloat($('f-cashout').value)||0,p=Math.round((c-b)*100)/100,el=$('f-result');el.value=p!==0?(p>0?'+':'-')+'$'+Math.abs(p).toFixed(2):'—';el.style.color=p>0?'var(--accent)':p<0?'var(--red)':'var(--muted2)';}
 function groupBy(arr,fn){const m={};arr.forEach(x=>{const k=fn(x);m[k]=(m[k]||0)+(+x.profit||0);});return m;}
 function sum(arr,k){return arr.reduce((a,x)=>a+(+x[k]||0),0);}
 function parseSplitsRaw(s){try{return typeof s==='string'?JSON.parse(s||'[]'):s||[];}catch{return[];}}
@@ -3136,6 +3404,8 @@ function parseSplits(s,playType){
 }
 function parseDur(d){if(!d)return 0;const hm=String(d).match(/(\d+(?:\.\d+)?)h(?:(\d+)m)?/i);if(hm)return parseFloat(hm[1])+(parseInt(hm[2]||0)/60);const n=parseFloat(d);return isNaN(n)?0:n;}
 function fm(n){const v=parseFloat(n)||0,a=Math.abs(v),s=a>=10000?'$'+(a/1000).toFixed(1)+'k':'$'+a.toFixed(0);return v<0?'-'+s:s;}
+// Cents-precision currency for places where we want 2 decimals (cell values, edit modal, etc).
+function fm2(n){const v=parseFloat(n)||0,a=Math.abs(v),s='$'+a.toFixed(2);return v<0?'-'+s:s;}
 function fmtDate(d){if(!d)return'—';const dt=new Date(d+'T12:00:00');return(dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2);}
 function bCls(f){const lc=(f||'').trim().toLowerCase();return lc==='nlh'?'b-nlh':lc==='plo4'?'b-plo4':lc==='plo5'?'b-plo5':lc.includes('mix')?'b-mix':'b-oth';}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -3143,6 +3413,77 @@ function emptyHtml(icon,msg){return`<div class="empty"><div class="empty-icon">$
 function parseBB(s){if(!s)return null;const t=s.trim(),nl=t.match(/^(\d+(?:\.\d+)?)\s*nl$/i)||t.match(/^nl\s*(\d+(?:\.\d+)?)$/i);if(nl)return parseFloat(nl[1])/100;const sl=t.match(/[\d.]+\s*\/\s*([\d.]+)/);return sl?parseFloat(sl[1]):null;}
 function calcBB100(sessions){let ws=0,th=0;for(const s of sessions){const bb=parseBB(s.stake_level),h=parseInt(s.hands_played)||0;if(bb&&h&&bb>0){ws+=(+s.profit||0)/bb;th+=h;}}return th===0?null:(ws/th)*100;}
 function toast(msg,type='ok'){const t=$('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ── BANKROLL / EXPOSURE HELPERS ──────────────────────────────────────────────
+// Compute per-venue bankroll for a student. Uses transfers + sessions.
+//   venue_balance = sum(transfers IN) - sum(transfers OUT) + sum(session profits at venue)
+// Also returns a 'liveRoll' bucket for live cash and a list of recent venues.
+function computeVenueBankrolls(studentId){
+  const sessions=(typeof allSess!=='undefined'&&allSess.length?allSess:(typeof mySess!=='undefined'?mySess:[])).filter(s=>s.student_id===studentId);
+  const transfers=(typeof allTransfers!=='undefined'&&allTransfers.length?allTransfers:(typeof myTransfers!=='undefined'?myTransfers:[])).filter(t=>t.student_id===studentId&&t.type!=='split');
+  const venues={};
+  // Discover venues from sessions
+  for(const s of sessions){
+    if(!s.venue)continue;
+    if(!venues[s.venue])venues[s.venue]={name:s.venue,balance:0,profit:0,deposits:0,withdrawals:0,play_type:s.play_type,last:null};
+    venues[s.venue].balance+=(+s.profit||0);
+    venues[s.venue].profit+=(+s.profit||0);
+    if(!venues[s.venue].last||(s.date>venues[s.venue].last))venues[s.venue].last=s.date;
+  }
+  // Apply transfers — sender = withdrawal from that venue, receiver = deposit to that venue
+  for(const t of transfers){
+    const amt=+t.amount||0;
+    if(t.sender&&venues[t.sender]){venues[t.sender].balance-=amt;venues[t.sender].withdrawals+=amt;}
+    if(t.receiver&&venues[t.receiver]){venues[t.receiver].balance+=amt;venues[t.receiver].deposits+=amt;}
+  }
+  return Object.values(venues);
+}
+// Latest stake the student is playing at a given venue (defaults to highest seen)
+function recentStakeAtVenue(studentId,venue){
+  const ss=(typeof allSess!=='undefined'&&allSess.length?allSess:(typeof mySess!=='undefined'?mySess:[])).filter(s=>s.student_id===studentId&&s.venue===venue);
+  if(!ss.length)return null;
+  ss.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // Take stakes from the most recent 5 sessions
+  const stakes=ss.slice(0,5).flatMap(s=>(s.stake_level||'').split(',').map(x=>x.trim())).filter(Boolean);
+  if(!stakes.length)return null;
+  // Return the highest stake (most pessimistic for buy-in calc)
+  stakes.sort((a,b)=>stakeVal(b)-stakeVal(a));
+  return stakes[0];
+}
+// 1 buy-in = 100 BB. Returns dollar value, or null if can't determine
+function buyInValue(stake){
+  if(!stake)return null;
+  const bb=parseBB(stake);
+  if(bb)return bb*100;
+  // Live stake notation like "5/10" → big blind = 10
+  const m=String(stake).match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if(m)return parseFloat(m[2])*100;
+  return null;
+}
+// Compute "running low" alerts for a student. Live: <7 BI on Live Roll. Online: any venue with <10 BI.
+function bankrollAlerts(studentId){
+  const alerts=[];
+  const venues=computeVenueBankrolls(studentId);
+  for(const v of venues){
+    const stake=recentStakeAtVenue(studentId,v.name);
+    const bi=buyInValue(stake);
+    if(!bi||bi<=0)continue;
+    const threshold=v.play_type==='live'?7:10;
+    const buyIns=v.balance/bi;
+    if(buyIns<threshold&&v.balance>0){
+      alerts.push({venue:v.name,balance:v.balance,stake,bi,buyIns:Math.floor(buyIns*10)/10,play_type:v.play_type,severity:buyIns<threshold/2?'critical':'low'});
+    }
+  }
+  return alerts;
+}
+// Per-student summary stat for roster card / dashboards
+function studentExposure(studentId){
+  const venues=computeVenueBankrolls(studentId);
+  const totalBalance=venues.reduce((a,v)=>a+v.balance,0);
+  const liveBalance=venues.filter(v=>v.play_type==='live').reduce((a,v)=>a+v.balance,0);
+  const onlineBalance=venues.filter(v=>v.play_type==='online').reduce((a,v)=>a+v.balance,0);
+  return {venues,totalBalance,liveBalance,onlineBalance,alerts:bankrollAlerts(studentId)};
+}
 
 // ── TRANSFER PARTY HELPERS ───────────────────────────────────────────────────
 function isBackerName(v){
