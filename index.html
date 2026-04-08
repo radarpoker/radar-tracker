@@ -1242,15 +1242,21 @@ function saveStudPrefs(){
   populateSessionDataLists();
 }
 
-function populateSessionDataLists(){
-  // Admin path: use global allSess for venue list, allContracts for live-roll check
+function populateSessionDataLists(ptype){
+  // Determine the play_type we're populating venue options for.
+  // Admin path uses the play-type dropdown; student path uses the session-type
+  // ("curMode") or an explicit arg from toggleDurField.
+  const effectivePt=ptype
+    ||(isAdmin?($('f-play-type-adm')?$('f-play-type-adm').value:'live'):(curMode==='both'?'live':curMode))
+    ||'live';
+  // Admin path: use global allSess, filtered by play_type.
   if(isAdmin){
-    const sessionVenues=[...new Set((allSess||[]).map(s=>s.venue).filter(Boolean))].sort();
+    const sessionVenues=[...new Set((allSess||[]).filter(s=>s.play_type===effectivePt).map(s=>s.venue).filter(Boolean))].sort();
     const vMenu=$('f-venue-menu');
     if(vMenu){
       vMenu.innerHTML=sessionVenues.map(v=>`<div class="cdd-opt" onclick="setCdd('f-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('');
     }
-    renderStakeChips();
+    renderStakeChips(effectivePt);
     const rbMenu=$('f-rb-dest-menu');
     if(rbMenu){
       const stakers=(allStakers||[]).map(s=>s.name);
@@ -1259,22 +1265,27 @@ function populateSessionDataLists(){
     }
     return;
   }
-  const hasActiveLive=(myContracts||[]).some(c=>c.play_type==='live'&&c.active!==false);
-  const isLive=me&&me.play_types!=='online';
-  // Venue dropdown
-  const sessionVenues=[...new Set(mySess.map(s=>s.venue).filter(Boolean))];
-  const allVenues=[...new Set([...(isLive&&hasActiveLive?['Live Roll']:[]),...myVenues,...sessionVenues])];
+  // Student path: only include venues matching the current play_type.
+  // (A venue is classified by the play_type of the sessions logged there.)
+  const sessionVenuesForPt=[...new Set(mySess.filter(s=>s.play_type===effectivePt).map(s=>s.venue).filter(Boolean))];
+  // Student's saved custom venues — intersect with play_type using any prior session at that venue
+  const savedVenues=(myVenues||[]).filter(v=>{
+    const sess=mySess.filter(s=>s.venue===v);
+    if(!sess.length)return true; // unseen venue — student manually added, trust them
+    return sess.some(s=>s.play_type===effectivePt);
+  });
+  const allVenues=[...new Set([...savedVenues,...sessionVenuesForPt])].sort();
   const vMenu=$('f-venue-menu');
   if(vMenu){
     vMenu.innerHTML=allVenues.map(v=>`<div class="cdd-opt" onclick="setCdd('f-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('');
   }
-  renderStakeChips();
-  // Rakeback destination dropdown — venues + stakers
+  renderStakeChips(effectivePt);
+  // Rakeback destination dropdown — any online venues the student plays + stakers
   const rbMenu=$('f-rb-dest-menu');
   if(rbMenu){
-    const venues=[...new Set([...myVenues,...sessionVenues])].sort();
+    const onlineVenues=[...new Set(mySess.filter(s=>s.play_type==='online').map(s=>s.venue).filter(Boolean))].sort();
     const stakers=(allStakers||[]).map(s=>s.name);
-    const destOpts=[...venues,...stakers.filter(s=>!venues.includes(s))];
+    const destOpts=[...onlineVenues,...stakers.filter(s=>!onlineVenues.includes(s))];
     rbMenu.innerHTML=destOpts.map(d=>`<div class="cdd-opt" onclick="setCdd('f-rb-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
   }
 }
@@ -1287,13 +1298,37 @@ function getContractForSession(sess){
 }
 
 // ── CONTRACT MATH ─────────────────────────────────────────────────────────────
-// Returns {studentTake, stakerTake, makeup} for a set of sessions under a contract
+// Returns {studentTake, stakerTake, makeup} for a set of sessions under a contract.
+// Tier-aware: when a winning session straddles a tier boundary, the portion below
+// the boundary is taxed at the lower rate and the portion above at the higher rate.
+function applyTieredSplit(splits, startingNet, chunkAmount){
+  // Returns {stud, stak, endingNet} given the cleared-net starting point and
+  // a chunk of profit to distribute across (possibly multiple) tiers.
+  let stud=0, stak=0, net=startingNet, remaining=chunkAmount;
+  // Guard: if no tiers defined, fall back to 60/40
+  if(!splits||!splits.length){
+    return {stud:chunkAmount*0.6, stak:chunkAmount*0.4, endingNet:net+chunkAmount};
+  }
+  let safety=0;
+  while(remaining>0.0001){
+    if(++safety>50)break; // paranoia guard
+    const tier=splits.find(t=>net>=t.min&&(t.max==null||net<t.max))||splits[splits.length-1];
+    const room=tier.max==null?Infinity:(tier.max-net);
+    const chunk=Math.min(remaining,room);
+    if(chunk<=0)break;
+    stud+=chunk*(tier.pct/100);
+    stak+=chunk*((100-tier.pct)/100);
+    net+=chunk;
+    remaining-=chunk;
+  }
+  return {stud, stak, endingNet:net};
+}
 function calcContractStats(sessions, contract, playType){
   if(!contract)return{studentTake:0,stakerTake:0,makeup:contract?.starting_makeup||0,netProfit:0};
   const splits=parseSplits(contract.splits, playType);
   const sorted=[...sessions].filter(s=>s.date>=contract.start_date&&(!contract.end_date||s.date<=contract.end_date)).sort((a,b)=>a.date<b.date?-1:1);
   let makeup=contract.starting_makeup||0;
-  let studentTake=0,stakerTake=0,totalProfit=0;
+  let studentTake=0,stakerTake=0,totalProfit=0,clearedNet=0;
   for(const s of sorted){
     const p=+s.profit||0;totalProfit+=p;
     if(p<=0){makeup+=Math.abs(p);continue;}
@@ -1301,11 +1336,11 @@ function calcContractStats(sessions, contract, playType){
     let remaining=p;
     if(makeup>0){const cleared=Math.min(makeup,remaining);makeup-=cleared;remaining-=cleared;}
     if(remaining<=0)continue;
-    // apply tiers on remaining profit
-    const tier=getTierForAmount(splits,totalProfit-makeup);
-    const pct=tier?tier.pct:60;
-    studentTake+=remaining*(pct/100);
-    stakerTake+=remaining*((100-pct)/100);
+    // Distribute across tiers, walking from current cleared-net forward.
+    const r=applyTieredSplit(splits,clearedNet,remaining);
+    studentTake+=r.stud;
+    stakerTake+=r.stak;
+    clearedNet=r.endingNet;
   }
   return{studentTake,stakerTake,makeup,netProfit:totalProfit};
 }
@@ -1841,12 +1876,26 @@ function renderAnalyticsTab(){
     return acc+lcs.makeup+ocs.makeup;
   },0);
   const totalLiquidity=allBankroll.reduce((a,x)=>a+(+x.amount||0),0);
+  // Aggregate ROI for the entire program: total backer earnings ÷ total capital deployed.
+  // Capital deployed = every transfer whose sender is a backer (bankroll funding).
+  const backerNames=(allStakers||[]).map(k=>k.name.toLowerCase());
+  const capitalDeployed=allTransfers
+    .filter(t=>t.type==='transfer'&&backerNames.includes((t.sender||'').toLowerCase()))
+    .reduce((a,t)=>a+(+t.amount||0),0);
+  const totalStakerEarnings=allStuds.reduce((a,s)=>{
+    const lcs=getStudentContractStats(s.id,'live');
+    const ocs=getStudentContractStats(s.id,'online');
+    return a+(lcs.stakerTake||0)+(ocs.stakerTake||0);
+  },0);
+  const roi=capitalDeployed>0?(totalStakerEarnings/capitalDeployed)*100:null;
 
   $('a-stable-stats').innerHTML=`
     <div class="sc"><div class="sc-lbl">Total Net P&L</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
     <div class="sc"><div class="sc-lbl">Total Sessions</div><div class="sc-val neu">${allSess.length}</div></div>
     <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
-    <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val neu">${fm(totalLiquidity)}</div></div>
+    <div class="sc"><div class="sc-lbl">Capital Deployed</div><div class="sc-val neu">${fm(capitalDeployed)}</div></div>
+    <div class="sc"><div class="sc-lbl">Backer Earnings</div><div class="sc-val ${totalStakerEarnings>0?'pos':'neu'}">${fm(totalStakerEarnings)}</div></div>
+    <div class="sc" title="Backer earnings ÷ total capital ever deployed"><div class="sc-lbl">ROI</div><div class="sc-val ${roi==null?'neu':roi>0?'pos':'neg'}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(1)+'%')}</div></div>
     <div class="sc"><div class="sc-lbl">Active Students</div><div class="sc-val neu">${allStuds.filter(s=>s.active).length}</div></div>`;
 
   const mkStats=(sess,color)=>{const net=sum(sess,'profit'),wr=sess.length?Math.round(sess.filter(x=>+x.profit>0).length/sess.length*100):0;return`<div class="sc" style="border-color:rgba(${color},.2)"><div class="sc-lbl">Net P&L</div><div class="sc-val ${net>0?'pos':net<0?'neg':'neu'}">${fm(net)}</div></div><div class="sc"><div class="sc-lbl">Sessions</div><div class="sc-val neu">${sess.length}</div></div><div class="sc"><div class="sc-lbl">Win Rate</div><div class="sc-val neu">${sess.length?wr+'%':'—'}</div></div>`;};
@@ -1999,7 +2048,7 @@ function renderIdsList(){
 
 // ── BACKER DASHBOARD ──────────────────────────────────────────────────────────
 // Top-of-portal view for a backer-scoped admin: clear picture of their financial
-// exposure, per-student liquidity, PnL, and filter handles.
+// exposure, per-student liquidity, PnL, settlement balances, and aggregate ROI.
 function renderBackerDashboard(){
   const el=$('a-dash-body');if(!el)return;
   const backerLabel=backerScope||'All Backers';
@@ -2014,7 +2063,13 @@ function renderBackerDashboard(){
     const totalMakeup=(liveCS.makeup||0)+(onlineCS.makeup||0);
     const totalStakerCut=(liveCS.stakerTake||0)+(onlineCS.stakerTake||0);
     const totalStudentCut=(liveCS.studentTake||0)+(onlineCS.studentTake||0);
-    return{s,liveCS,onlineCS,lastSess,expo,totalNetPL,totalMakeup,totalStakerCut,totalStudentCut,sessions:ss.length};
+    // Settlement balance: student earned (cut) minus split payouts already made.
+    // Positive = backer owes student, negative = student is in advance.
+    const splitsPaid=allTransfers
+      .filter(t=>t.student_id===s.id&&t.type==='split')
+      .reduce((a,t)=>a+(+t.student_cut||+t.amount||0),0);
+    const settlementBalance=Math.round((totalStudentCut-splitsPaid)*100)/100;
+    return{s,liveCS,onlineCS,lastSess,expo,totalNetPL,totalMakeup,totalStakerCut,totalStudentCut,splitsPaid,settlementBalance,sessions:ss.length};
   }).sort((a,b)=>b.totalNetPL-a.totalNetPL);
   // Aggregates
   const totalNet=rows.reduce((a,r)=>a+r.totalNetPL,0);
@@ -2022,6 +2077,17 @@ function renderBackerDashboard(){
   const totalStakerEarnings=rows.reduce((a,r)=>a+r.totalStakerCut,0);
   const totalLiquidity=rows.reduce((a,r)=>a+r.expo.totalBalance,0);
   const totalAlerts=rows.reduce((a,r)=>a+r.expo.alerts.length,0);
+  const totalSettlement=rows.reduce((a,r)=>a+r.settlementBalance,0);
+  // Aggregate ROI: backer earnings ÷ capital deployed.
+  //   Capital deployed = sum of transfers FROM the backer TO a site/student
+  //                    + current outstanding makeup (capital currently at risk)
+  // We use the gross deployed figure (all-time, not netting withdrawals back)
+  // as the denominator so ROI reflects how efficient the capital has been overall.
+  const backerNames=(allStakers||[]).map(k=>k.name.toLowerCase());
+  const capitalDeployed=allTransfers
+    .filter(t=>t.type==='transfer'&&backerNames.includes((t.sender||'').toLowerCase()))
+    .reduce((a,t)=>a+(+t.amount||0),0);
+  const roi=capitalDeployed>0?(totalStakerEarnings/capitalDeployed)*100:null;
   // Build the layout
   el.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
@@ -2034,15 +2100,18 @@ function renderBackerDashboard(){
     <div class="stats-grid" style="margin-bottom:1.25rem;">
       <div class="sc"><div class="sc-lbl">Net P&L (all students)</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
       <div class="sc"><div class="sc-lbl">Backer Earnings (your cut)</div><div class="sc-val ${totalStakerEarnings>0?'pos':'neu'}">${fm(totalStakerEarnings)}</div></div>
+      <div class="sc"><div class="sc-lbl">Capital Deployed</div><div class="sc-val neu">${fm(capitalDeployed)}</div></div>
+      <div class="sc" title="Backer earnings ÷ total capital ever deployed"><div class="sc-lbl">ROI</div><div class="sc-val ${roi==null?'neu':roi>0?'pos':'neg'}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(1)+'%')}</div></div>
       <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
       <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val ${totalLiquidity>0?'pos':totalLiquidity<0?'neg':'neu'}">${fm(totalLiquidity)}</div></div>
+      <div class="sc" title="Positive = you owe student; negative = student is in advance"><div class="sc-lbl">Settle Balance</div><div class="sc-val ${totalSettlement>0.5?'pos':totalSettlement<-0.5?'neg':'neu'}">${totalSettlement>0?('+'+fm(totalSettlement)):fm(totalSettlement)}</div></div>
       <div class="sc"><div class="sc-lbl">Active Alerts</div><div class="sc-val ${totalAlerts>0?'neg':'pos'}">${totalAlerts}</div></div>
     </div>
     <div class="card" style="margin-bottom:1rem;">
       <div class="card-hd"><div class="card-title">Per-Student Exposure</div></div>
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr>
-          <th>Student</th><th>Type</th><th>Sessions</th><th>Net P&L</th><th>Makeup</th><th>Your Cut</th><th>Liquidity</th><th>Last Session</th><th>Alerts</th>
+          <th>Student</th><th>Type</th><th>Sessions</th><th>Net P&L</th><th>Makeup</th><th>Your Cut</th><th title="Student cut earned minus split payouts">Settle</th><th>Liquidity</th><th>Last Session</th><th>Alerts</th>
         </tr></thead>
         <tbody>${rows.map(r=>{
           const pt=r.s.play_types||'live';
@@ -2052,6 +2121,8 @@ function renderBackerDashboard(){
           const alertBadge=alertCt?`<span class="br-pill ${r.expo.alerts.some(a=>a.severity==='critical')?'crit':'low'}">${alertCt}</span>`:'<span style="color:var(--muted);">—</span>';
           const stale=r.lastSess?Math.floor((new Date()-new Date(r.lastSess+'T12:00:00'))/(86400*1000)):null;
           const staleClr=stale==null?'var(--muted)':stale<=3?'var(--accent)':stale<=7?'var(--text)':stale<=30?'var(--muted2)':'var(--red)';
+          const sb=r.settlementBalance;
+          const sbClr=Math.abs(sb)<0.5?'var(--muted2)':sb>0?'var(--accent)':'var(--red)';
           return`<tr style="cursor:pointer;" onclick="openStudInfo('${r.s.id}')">
             <td style="font-weight:600;color:var(--accent);">${esc(r.s.name)} <span style="color:var(--muted);font-weight:400;font-size:11px;">#${r.s.id}</span></td>
             <td>${liveBlk} ${onlineBlk}</td>
@@ -2059,6 +2130,7 @@ function renderBackerDashboard(){
             <td class="${r.totalNetPL>0?'pp':r.totalNetPL<0?'pn':''}" style="font-weight:600;">${(r.totalNetPL>=0?'+':'')+fm(r.totalNetPL)}</td>
             <td style="color:${r.totalMakeup>0?'var(--red)':'var(--muted2)'}">${r.totalMakeup>0?fm(r.totalMakeup):'—'}</td>
             <td style="color:var(--accent);">${fm(r.totalStakerCut)}</td>
+            <td style="color:${sbClr};font-weight:600;" title="Earned ${fm(r.totalStudentCut)} · Paid out ${fm(r.splitsPaid)}">${Math.abs(sb)<0.5?'—':(sb>0?'+':'')+fm(sb)}</td>
             <td style="color:var(--muted2);">${fm(r.expo.totalBalance)}</td>
             <td style="font-size:11px;color:${staleClr};">${r.lastSess?fmtDate(r.lastSess)+(stale!=null?' <span style="color:var(--muted);">('+stale+'d)</span>':''):'—'}</td>
             <td>${alertBadge}</td>
@@ -2069,10 +2141,11 @@ function renderBackerDashboard(){
           <td class="${totalNet>0?'pp':totalNet<0?'pn':''}" style="font-weight:700;">${(totalNet>=0?'+':'')+fm(totalNet)}</td>
           <td style="color:${totalMakeup>0?'var(--red)':'var(--muted2)'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</td>
           <td style="color:var(--accent);font-weight:700;">${fm(totalStakerEarnings)}</td>
+          <td style="color:${Math.abs(totalSettlement)<0.5?'var(--muted2)':totalSettlement>0?'var(--accent)':'var(--red)'};font-weight:700;">${Math.abs(totalSettlement)<0.5?'—':(totalSettlement>0?'+':'')+fm(totalSettlement)}</td>
           <td>${fm(totalLiquidity)}</td>
           <td></td><td>${totalAlerts}</td>
         </tr></tfoot>
-      </table>
+      </table></div>
     </div>
     ${totalAlerts>0?`<div class="card" style="margin-bottom:1rem;border-color:rgba(248,113,113,.3);">
       <div class="card-hd"><div class="card-title">⚠ Bankroll Alerts</div></div>
@@ -3016,8 +3089,22 @@ function toggleDurField(ptype){
   const bL=$('f-buyin-label'),cL=$('f-cashout-label');
   if(bL)bL.textContent=ptype==='online'?'Bankroll Start ($)':'Buy In ($)';
   if(cL)cL.textContent=ptype==='online'?'Bankroll End ($)':'Cash Out ($)';
-  // Re-render stake chips with the right pool
-  renderStakeChips(ptype);
+  // Re-populate venue list + stake chips for the new play type. Also clear the
+  // currently-selected venue if it's no longer valid for this play type — otherwise
+  // you could end up saving "iPoker" as a live session venue.
+  populateSessionDataLists(ptype);
+  const currentVenue=$('f-venue').value;
+  if(currentVenue){
+    const validOptions=[...document.querySelectorAll('#f-venue-menu .cdd-opt')].map(el=>{
+      const m=el.getAttribute('onclick').match(/setCdd\('f-venue','([^']+)'/);
+      return m?m[1]:null;
+    }).filter(Boolean);
+    if(!validOptions.includes(currentVenue)){
+      $('f-venue').value='';
+      const vl=$('f-venue-label');
+      if(vl){vl.textContent='Select venue…';vl.style.color='var(--muted2)';}
+    }
+  }
 }
 // Stake chip multi-select — replaces the old single-pick dropdown.
 // Stores selection as a comma-separated string in the hidden #f-stake input
