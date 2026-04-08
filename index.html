@@ -162,7 +162,16 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .alert-row{display:flex;align-items:center;gap:6px;padding:4px 7px;font-size:11px;color:var(--muted2);background:rgba(0,0,0,.3);border-left:2px solid var(--orange);margin-top:5px;border-radius:0 3px 3px 0}
 .alert-row.crit{border-left-color:var(--red)}
 .alert-row.low{border-left-color:#fbbf24}
-@media (max-width:1200px){.transfers-layout{grid-template-columns:1fr!important}#a-news-card{order:-1}}
+@media (max-width:1200px){.transfers-layout,.roster-layout{grid-template-columns:1fr!important}#a-news-card{order:-1}}
+.id-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)}
+.id-row:last-child{border-bottom:none}
+.id-row .id-num{font-weight:600;color:var(--accent);letter-spacing:.04em}
+.id-row .id-name{color:var(--text);flex:1;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.id-row .id-tag{font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:2px;border:1px solid}
+.id-tag.stud{color:var(--accent);border-color:var(--accent-border);background:var(--accent-dim)}
+.id-tag.adm{color:var(--orange);border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+.id-tag.master{color:#f87171;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.08)}
+.id-section-hdr{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);padding:8px 8px 4px;border-bottom:1px solid var(--border2)}
 
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .18s}
@@ -654,7 +663,13 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
 
     <!-- ROSTER TAB -->
     <div class="tab-pane" id="a-tab-roster">
-      <div class="stud-grid" id="a-stud-grid"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      <div class="roster-layout" style="display:grid;grid-template-columns:1fr 280px;gap:1rem;">
+        <div class="stud-grid" id="a-stud-grid"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+        <div class="card" id="a-ids-card" style="align-self:start;">
+          <div class="card-hd"><div class="card-title">🔑 Login IDs</div></div>
+          <div id="a-ids-list" style="padding:.5rem;max-height:80vh;overflow-y:auto;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- EXPENSES TAB -->
@@ -1673,6 +1688,7 @@ async function loadAdminData(){
   try{renderAllSess();}catch(e){console.error('renderAllSess',e);}
   try{renderAnalyticsTab();}catch(e){console.error('renderAnalyticsTab',e);}
   try{renderRoster();}catch(e){console.error('renderRoster',e);}
+  try{renderIdsList();}catch(e){console.error('renderIdsList',e);}
   try{renderAdminTransfers();}catch(e){console.error('renderAdminTransfers',e);}
   try{renderNewsFeed();}catch(e){console.error('renderNewsFeed',e);}
   // Backer-scoped admin gets the Dashboard tab as their landing page
@@ -1914,6 +1930,34 @@ function renderAdminTransfers(){
       <td class="${net>=0?'amt-in':'amt-out'}">${(net>=0?'+':'')+fm(net)}</td>
       <td colspan="3"></td>
     </tr></tfoot></table>`;
+}
+
+// ── LOGIN IDS LIST (admin Roster sidebar) ────────────────────────────────────
+function renderIdsList(){
+  const el=$('a-ids-list');if(!el)return;
+  // Active students sorted by name
+  const studs=[...allStuds].filter(s=>s.active!==false).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const inactiveStuds=[...allStuds].filter(s=>s.active===false).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  // Backer admin PINs come from the global BACKER_ADMIN_PINS map
+  const backers=Object.entries(BACKER_ADMIN_PINS).sort((a,b)=>a[1].localeCompare(b[1]));
+  let html='';
+  html+=`<div class="id-section-hdr">Admin (Master)</div>`;
+  html+=`<div class="id-row"><span class="id-num">${ADMIN_PIN}</span><span class="id-name">Master</span><span class="id-tag master">admin</span></div>`;
+  html+=`<div class="id-section-hdr">Backer Admins</div>`;
+  for(const[pin,name]of backers){
+    html+=`<div class="id-row"><span class="id-num">${pin}</span><span class="id-name">${esc(name)}</span><span class="id-tag adm">backer</span></div>`;
+  }
+  html+=`<div class="id-section-hdr">Students (${studs.length})</div>`;
+  for(const s of studs){
+    html+=`<div class="id-row" style="cursor:pointer;" onclick="openStudInfo('${s.id}')"><span class="id-num">${s.id}</span><span class="id-name">${esc(s.name)}</span><span class="id-tag stud">student</span></div>`;
+  }
+  if(inactiveStuds.length){
+    html+=`<div class="id-section-hdr">Inactive (${inactiveStuds.length})</div>`;
+    for(const s of inactiveStuds){
+      html+=`<div class="id-row" style="opacity:.5;cursor:pointer;" onclick="openStudInfo('${s.id}')"><span class="id-num">${s.id}</span><span class="id-name">${esc(s.name)}</span><span class="id-tag stud">student</span></div>`;
+    }
+  }
+  el.innerHTML=html;
 }
 
 // ── BACKER DASHBOARD ──────────────────────────────────────────────────────────
