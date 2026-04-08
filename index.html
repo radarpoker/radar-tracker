@@ -152,6 +152,17 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .b-pty-site{color:#38bdf8;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08)}
 .b-pty-student{color:#4ade80;border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
 .b-pty-other{color:var(--muted2);border-color:var(--border2);background:rgba(255,255,255,.02)}
+/* TRANSFER CATEGORY BADGES */
+.b-cat-split{color:#4ade80;border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
+.b-cat-deposit{color:#38bdf8;border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.08)}
+.b-cat-withdrawal{color:#a78bfa;border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.08)}
+.b-cat-advance{color:#fbbf24;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+.b-cat-rakeback{color:#34d399;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+.b-cat-site{color:#64748b;border-color:rgba(100,116,139,.4);background:rgba(100,116,139,.08)}
+.b-cat-software{color:#f472b6;border-color:rgba(244,114,182,.4);background:rgba(244,114,182,.08)}
+.b-cat-equipment{color:#fb923c;border-color:rgba(251,146,60,.4);background:rgba(251,146,60,.08)}
+.b-cat-travel{color:#22d3ee;border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.08)}
+.b-cat-other{color:var(--muted2);border-color:var(--border2);background:rgba(255,255,255,.02)}
 /* BANKROLL ALERTS */
 .br-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);border:1px solid;}
 .br-pill.low{color:#fbbf24;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.08)}
@@ -647,6 +658,21 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
             <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-tstud-cdd" onclick="toggleCdd('a-flt-tstud-cdd','a-flt-tstud-menu')"><span id="a-flt-tstud-label">All students</span><span class="cdd-arrow">▾</span></button>
             <div class="cdd-menu sm" id="a-flt-tstud-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-tstud','','All students',this);renderAdminTransfers()">All students</div></div></div>
             <input type="hidden" id="a-flt-tstud">
+            <div class="cdd-wrap" style="width:160px;"><button class="cdd-trigger sm" id="a-flt-tcat-cdd" onclick="toggleCdd('a-flt-tcat-cdd','a-flt-tcat-menu')"><span id="a-flt-tcat-label">All categories</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-tcat-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('a-flt-tcat','','All categories',this);renderAdminTransfers()">All categories</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','profit_split','Profit Split',this);renderAdminTransfers()"><span class="bdg b-cat-split" style="margin-right:4px;">profit split</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','bankroll_deposit','Bankroll Deposit',this);renderAdminTransfers()"><span class="bdg b-cat-deposit" style="margin-right:4px;">deposit</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','bankroll_withdrawal','Bankroll Withdrawal',this);renderAdminTransfers()"><span class="bdg b-cat-withdrawal" style="margin-right:4px;">withdrawal</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','cash_advance','Cash Advance',this);renderAdminTransfers()"><span class="bdg b-cat-advance" style="margin-right:4px;">cash advance</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','rakeback','Rakeback',this);renderAdminTransfers()"><span class="bdg b-cat-rakeback" style="margin-right:4px;">rakeback</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','site_transfer','Site Transfer',this);renderAdminTransfers()"><span class="bdg b-cat-site" style="margin-right:4px;">site transfer</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','software_reimburse','Software',this);renderAdminTransfers()"><span class="bdg b-cat-software" style="margin-right:4px;">software</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','equipment','Equipment',this);renderAdminTransfers()"><span class="bdg b-cat-equipment" style="margin-right:4px;">equipment</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','travel','Travel',this);renderAdminTransfers()"><span class="bdg b-cat-travel" style="margin-right:4px;">travel</span></div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-tcat','other','Other',this);renderAdminTransfers()"><span class="bdg b-cat-other" style="margin-right:4px;">other</span></div>
+            </div></div>
+            <input type="hidden" id="a-flt-tcat">
             <div id="at-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
             <button class="filter-btn" id="at-filter-btn" onclick="openFP('atransfer')">⊞ Filter</button>
           </div>
@@ -935,6 +961,25 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
           <div class="cdd-menu" id="t-dest-menu" style="display:none;"></div>
         </div>
         <input type="hidden" id="t-dest">
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fld"><label>Category</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="t-cat-cdd" onclick="toggleCdd('t-cat-cdd','t-cat-menu')"><span id="t-cat-label" style="color:var(--muted2);">Auto-detect</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="t-cat-menu" style="display:none;">
+          <div class="cdd-opt selected" onclick="setCdd('t-cat','','Auto-detect',this)">Auto-detect</div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','profit_split','Profit Split',this)"><span class="bdg b-cat-split" style="margin-right:4px;">profit split</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','bankroll_deposit','Bankroll Deposit',this)"><span class="bdg b-cat-deposit" style="margin-right:4px;">bankroll deposit</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','bankroll_withdrawal','Bankroll Withdrawal',this)"><span class="bdg b-cat-withdrawal" style="margin-right:4px;">bankroll withdrawal</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','cash_advance','Cash Advance',this)"><span class="bdg b-cat-advance" style="margin-right:4px;">cash advance</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','rakeback','Rakeback',this)"><span class="bdg b-cat-rakeback" style="margin-right:4px;">rakeback</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','site_transfer','Site Transfer',this)"><span class="bdg b-cat-site" style="margin-right:4px;">site transfer</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','software_reimburse','Software / Tool',this)"><span class="bdg b-cat-software" style="margin-right:4px;">software</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','equipment','Equipment',this)"><span class="bdg b-cat-equipment" style="margin-right:4px;">equipment</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','travel','Travel',this)"><span class="bdg b-cat-travel" style="margin-right:4px;">travel</span></div>
+          <div class="cdd-opt" onclick="setCdd('t-cat','other','Other',this)"><span class="bdg b-cat-other" style="margin-right:4px;">other</span></div>
+        </div></div>
+        <input type="hidden" id="t-cat" value="">
       </div>
     </div>
 
@@ -1876,12 +1921,15 @@ function renderAnalyticsTab(){
     return acc+lcs.makeup+ocs.makeup;
   },0);
   const totalLiquidity=allBankroll.reduce((a,x)=>a+(+x.amount||0),0);
-  // Aggregate ROI for the entire program: total backer earnings ÷ total capital deployed.
-  // Capital deployed = every transfer whose sender is a backer (bankroll funding).
-  const backerNames=(allStakers||[]).map(k=>k.name.toLowerCase());
+  // Capital Deployed: sum of transfers categorized 'bankroll_deposit' — accurate
+  // because it excludes site-to-site shuffles, software, equipment, etc.
   const capitalDeployed=allTransfers
-    .filter(t=>t.type==='transfer'&&backerNames.includes((t.sender||'').toLowerCase()))
+    .filter(t=>t.category==='bankroll_deposit')
     .reduce((a,t)=>a+(+t.amount||0),0);
+  // Backer Earnings: from contract math (totalStakerTake across all contracts).
+  // We tried using profit_split rows here but most historical splits weren't tagged
+  // as type='split' and don't have a staker_cut value, so the contract-derived
+  // figure is the accurate "earned" view.
   const totalStakerEarnings=allStuds.reduce((a,s)=>{
     const lcs=getStudentContractStats(s.id,'live');
     const ocs=getStudentContractStats(s.id,'online');
@@ -1970,14 +2018,16 @@ function renderRoster(){
 function renderAdminTransfers(){
   const fltType=$('a-flt-ttype')?$('a-flt-ttype').value:'';
   const fltStud=$('a-flt-tstud')?$('a-flt-tstud').value:'';
+  const fltCat=$('a-flt-tcat')?$('a-flt-tcat').value:'';
   let rows=allTransfers;
   if(fltType)rows=rows.filter(t=>t.type===fltType);
   if(fltStud)rows=rows.filter(t=>t.student_id===fltStud);
+  if(fltCat)rows=rows.filter(t=>(t.category||'other')===fltCat);
   rows=applyFilters(rows,activeFiltersAT);
   batchVisibleTransIds=rows.map(t=>t.id);
   renderChips('at-filter-chips','at-filter-btn','atransfer');
   const el=$('a-transfers-body');
-  if(!rows.length){el.innerHTML=emptyHtml('↔','No transfers yet.');return;}
+  if(!rows.length){el.innerHTML=emptyHtml('↔','No transfers found.');return;}
   const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
   rows=sortRows(rows,adminTransSort,sm);
   const arrow=c=>adminTransSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(adminTransSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
@@ -1994,7 +2044,7 @@ function renderAdminTransfers(){
   }
   const net=sumIn-sumOut;
   el.innerHTML=`<div class="batch-bar${batchSelTrans.size?' show':''}" id="batch-bar-trans-adm"><button class="btn-batch" onclick="openBatchEdit('trans')">Edit Selected (${batchSelTrans.size})</button><span class="batch-count">${batchSelTrans.size} selected</span></div>
-    <table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Type','ttype')}${th('Student','student')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}${th('Split Month','split_month')}<th>Notes</th><th></th></tr></thead>
+    <div class="table-scroll"><table><thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('trans',this)" ${batchSelTrans.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Category','category')}${th('Student','student')}${th('Sender','sender')}${th('Receiver','receiver')}${th('Amount','amount')}${th('Split Month','split_month')}<th>Notes</th><th></th></tr></thead>
     <tbody>${rows.map(t=>{
       const isSplit=t.type==='split';
       const studName=sm[t.student_id]||'';
@@ -2003,7 +2053,7 @@ function renderAdminTransfers(){
       return`<tr class="${tsel?'batch-sel':''}${isSplit?(tsel?' split-row':' split-row'):''}">
       <td><input type="checkbox" class="batch-cb" ${tsel?'checked':''} onchange="toggleBatchSel('trans','${t.id}',this)"></td>
       <td style="color:var(--muted);font-size:11px;">${fmtDate(t.date)}</td>
-      <td><span class="bdg ${isSplit?'b-act':'b-oth'}">${t.type}</span></td>
+      <td>${categoryBadge(t.category)}</td>
       <td style="cursor:pointer;color:var(--accent);" onclick="openStudInfo('${t.student_id}')">${esc(studName||'—')}</td>
       <td>${partyBadge(t.sender,studName,t,'sender')}</td><td>${partyBadge(t.receiver,studName,t,'receiver')}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
@@ -2015,7 +2065,7 @@ function renderAdminTransfers(){
       <td colspan="6" style="text-align:right;color:var(--muted2);font-size:11px;text-transform:uppercase;letter-spacing:.12em;">${rows.length} transfer${rows.length===1?'':'s'} &nbsp;·&nbsp; <span class="amt-out">Out ${fm(sumOut)}</span> &nbsp;·&nbsp; <span class="amt-in">In ${fm(sumIn)}</span>${sumMove?' &nbsp;·&nbsp; <span class="amt-move">Move '+fm(sumMove)+'</span>':''} &nbsp;·&nbsp; Net</td>
       <td class="${net>=0?'amt-in':'amt-out'}">${(net>=0?'+':'')+fm(net)}</td>
       <td colspan="3"></td>
-    </tr></tfoot></table>`;
+    </tr></tfoot></table></div>`;
 }
 
 // ── LOGIN IDS LIST (admin Roster sidebar) ────────────────────────────────────
@@ -2078,16 +2128,12 @@ function renderBackerDashboard(){
   const totalLiquidity=rows.reduce((a,r)=>a+r.expo.totalBalance,0);
   const totalAlerts=rows.reduce((a,r)=>a+r.expo.alerts.length,0);
   const totalSettlement=rows.reduce((a,r)=>a+r.settlementBalance,0);
-  // Aggregate ROI: backer earnings ÷ capital deployed.
-  //   Capital deployed = sum of transfers FROM the backer TO a site/student
-  //                    + current outstanding makeup (capital currently at risk)
-  // We use the gross deployed figure (all-time, not netting withdrawals back)
-  // as the denominator so ROI reflects how efficient the capital has been overall.
-  const backerNames=(allStakers||[]).map(k=>k.name.toLowerCase());
-  const capitalDeployed=allTransfers
-    .filter(t=>t.type==='transfer'&&backerNames.includes((t.sender||'').toLowerCase()))
+  // Capital Deployed: bankroll_deposit transfers (only the ones in the scoped allTransfers
+  // since loadAdminData already filtered for this backer's contracts).
+  const backerCapitalDeployed=allTransfers
+    .filter(t=>t.category==='bankroll_deposit')
     .reduce((a,t)=>a+(+t.amount||0),0);
-  const roi=capitalDeployed>0?(totalStakerEarnings/capitalDeployed)*100:null;
+  const roi=backerCapitalDeployed>0?(totalStakerEarnings/backerCapitalDeployed)*100:null;
   // Build the layout
   el.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
@@ -2100,8 +2146,8 @@ function renderBackerDashboard(){
     <div class="stats-grid" style="margin-bottom:1.25rem;">
       <div class="sc"><div class="sc-lbl">Net P&L (all students)</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
       <div class="sc"><div class="sc-lbl">Backer Earnings (your cut)</div><div class="sc-val ${totalStakerEarnings>0?'pos':'neu'}">${fm(totalStakerEarnings)}</div></div>
-      <div class="sc"><div class="sc-lbl">Capital Deployed</div><div class="sc-val neu">${fm(capitalDeployed)}</div></div>
-      <div class="sc" title="Backer earnings ÷ total capital ever deployed"><div class="sc-lbl">ROI</div><div class="sc-val ${roi==null?'neu':roi>0?'pos':'neg'}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(1)+'%')}</div></div>
+      <div class="sc"><div class="sc-lbl">Capital Deployed</div><div class="sc-val neu">${fm(backerCapitalDeployed)}</div></div>
+      <div class="sc" title="Backer earnings ÷ total capital ever deployed (from category-tagged transfers)"><div class="sc-lbl">ROI</div><div class="sc-val ${roi==null?'neu':roi>0?'pos':'neg'}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(1)+'%')}</div></div>
       <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
       <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val ${totalLiquidity>0?'pos':totalLiquidity<0?'neg':'neu'}">${fm(totalLiquidity)}</div></div>
       <div class="sc" title="Positive = you owe student; negative = student is in advance"><div class="sc-lbl">Settle Balance</div><div class="sc-val ${totalSettlement>0.5?'pos':totalSettlement<-0.5?'neg':'neu'}">${totalSettlement>0?('+'+fm(totalSettlement)):fm(totalSettlement)}</div></div>
@@ -2585,6 +2631,9 @@ function openTransferModal(){
   $('transfer-modal-title').textContent='New Transfer';
   $('t-date').value=new Date().toISOString().slice(0,10);
   $('t-amount').value='';$('t-dest').value='';$('t-notes').value='';
+  // Reset category to auto-detect
+  $('t-cat').value='';
+  const cl=$('t-cat-label');if(cl){cl.textContent='Auto-detect';cl.style.color='var(--muted2)';}
   $('t-split-fields').style.display='none';
 
   // Build grouped party list. Students can ONLY pick from their own backers
@@ -2696,6 +2745,60 @@ function editTransfer(id){
     $('t-stud-cut').value=t.student_cut||'';
     $('t-stak-cut').value=t.staker_cut||'';
   }
+  // Category
+  if(t.category){
+    const labelMap={profit_split:'Profit Split',bankroll_deposit:'Bankroll Deposit',bankroll_withdrawal:'Bankroll Withdrawal',cash_advance:'Cash Advance',rakeback:'Rakeback',site_transfer:'Site Transfer',software_reimburse:'Software / Tool',equipment:'Equipment',travel:'Travel',other:'Other'};
+    setCdd('t-cat',t.category,labelMap[t.category]||t.category,null);
+  }
+}
+// Auto-classify a transfer when the user leaves Category on "Auto-detect".
+// Mirrors the SQL migration logic closely so the backfill and new writes agree.
+function autoCategorize(t){
+  if(t.type==='split')return 'profit_split';
+  const backerLC=(allStakers||[]).map(k=>k.name.toLowerCase());
+  const studNames=(allStuds||[]).map(s=>s.name.toLowerCase());
+  const sndLC=(t.sender||'').toLowerCase();
+  const rcvLC=(t.receiver||'').toLowerCase();
+  const notesLC=(t.notes||'').toLowerCase();
+  const sndBacker=backerLC.includes(sndLC);
+  const rcvBacker=backerLC.includes(rcvLC);
+  const sndStudent=sndLC==='student'||studNames.includes(sndLC);
+  const rcvStudent=rcvLC==='student'||studNames.includes(rcvLC);
+  const sndSite=!sndBacker&&!sndStudent&&sndLC!=='bank'&&sndLC!=='crypto'&&sndLC!=='';
+  const rcvSite=!rcvBacker&&!rcvStudent&&rcvLC!=='bank'&&rcvLC!=='crypto'&&rcvLC!=='';
+  // Notes first (most specific)
+  if(/\b(pt4|pokertracker|h2n|hand2note|hm3|holdem manager|intuitive|asian hand|hand converter|breakthrough hud|piosolver|gto\+|monker|equilab|shadow|subscription)\b/.test(notesLC))return 'software_reimburse';
+  if(/\b(monitor|keyboard|mouse|headset)\b/.test(notesLC))return 'equipment';
+  if(/\b(vegas|flight|hotel|trip)\b/.test(notesLC))return 'travel';
+  if(/\b(rakeback|rb)\b/.test(notesLC))return 'rakeback';
+  if(/profit split|^split|\bsplit\b/.test(notesLC))return 'profit_split';
+  // Structural rules
+  if(sndBacker&&rcvSite)return 'bankroll_deposit';
+  if(sndSite&&rcvBacker)return 'bankroll_withdrawal';
+  if(sndBacker&&rcvStudent)return 'cash_advance';
+  if(sndStudent&&rcvBacker)return 'cash_advance';
+  if(sndSite&&rcvSite)return 'site_transfer';
+  if(sndSite&&rcvStudent)return 'bankroll_withdrawal';
+  if(sndStudent&&rcvSite)return 'bankroll_deposit';
+  return 'other';
+}
+const TRANSFER_CATEGORIES={
+  profit_split:{label:'Profit Split',cls:'b-cat-split'},
+  bankroll_deposit:{label:'Bankroll Deposit',cls:'b-cat-deposit'},
+  bankroll_withdrawal:{label:'Bankroll Withdrawal',cls:'b-cat-withdrawal'},
+  cash_advance:{label:'Cash Advance',cls:'b-cat-advance'},
+  rakeback:{label:'Rakeback',cls:'b-cat-rakeback'},
+  site_transfer:{label:'Site Transfer',cls:'b-cat-site'},
+  software_reimburse:{label:'Software',cls:'b-cat-software'},
+  equipment:{label:'Equipment',cls:'b-cat-equipment'},
+  travel:{label:'Travel',cls:'b-cat-travel'},
+  other:{label:'Other',cls:'b-cat-other'},
+};
+function categoryBadge(category){
+  if(!category)return '<span style="color:var(--muted);font-size:11px;">—</span>';
+  const c=TRANSFER_CATEGORIES[category];
+  if(!c)return `<span class="bdg b-cat-other">${esc(category)}</span>`;
+  return `<span class="bdg ${c.cls}">${c.label.toLowerCase()}</span>`;
 }
 function updateTransferDest(){
   const destm=$('t-dest-menu');if(!destm)return;
@@ -2806,8 +2909,13 @@ async function saveTransfer(){
       }
     }
   }
+  // Category: explicit user pick, or auto-detect from type + sender/receiver + notes
+  let category=$('t-cat').value||null;
+  if(!category){
+    category=autoCategorize({type:curTransferType,sender,receiver,notes:userNotes,student_id:sid});
+  }
   const row={
-    type:curTransferType,student_id:sid||null,contract_id,date,sender,receiver,amount,
+    type:curTransferType,student_id:sid||null,contract_id,date,sender,receiver,amount,category,
     notes:noteParts.join(' | ')||null,
     ...(curTransferType==='split'?{split_month:$('t-split-month').value,student_cut:parseFloat($('t-stud-cut').value)||null,staker_cut:parseFloat($('t-stak-cut').value)||null}:{})
   };
