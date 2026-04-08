@@ -101,6 +101,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:1
 
 /* TABLE */
 table{width:100%;border-collapse:collapse;font-size:14px}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table-scroll::-webkit-scrollbar{height:8px}
+.table-scroll::-webkit-scrollbar-thumb{background:rgba(74,222,128,.15);border-radius:4px}
+.table-scroll::-webkit-scrollbar-thumb:hover{background:rgba(74,222,128,.3)}
+.row-actions{display:inline-flex;gap:3px;white-space:nowrap}
 thead th{text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);border-bottom:1px solid var(--border2);background:#000;white-space:nowrap;font-family:var(--mono)}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
@@ -1356,7 +1361,7 @@ function renderStudSessions(){
       const pc=tProfit>0?'pp':tProfit<0?'pn':'';
       const buyLbl=playType==='online'?'Bal Start':'Buy-in';
       const cashLbl=playType==='online'?'Bal End':'Cash-out';
-      return`<table>
+      return`<div class="table-scroll"><table>
         <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)"></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
         <tbody>${sRows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
         <tfoot><tr class="summary-row">
@@ -1365,7 +1370,7 @@ function renderStudSessions(){
           <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
           <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
           <td style="color:var(--muted2);font-family:var(--mono);">${dur}</td><td></td>
-        </tr></tfoot></table>`;
+        </tr></tfoot></table></div>`;
     }
 
     el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess-both"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
@@ -1393,7 +1398,7 @@ function renderStudSessions(){
   const buyLbl=curMode==='online'?'Bal Start':curMode==='live'?'Buy-in':'In';
   const cashLbl=curMode==='online'?'Bal End':curMode==='live'?'Cash-out':'Out';
   el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
-    <table>
+    <div class="table-scroll"><table>
     <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
     <tbody>${rows.map(s=>sessRow(s,false,{},false)).join('')}</tbody>
     <tfoot><tr class="summary-row">
@@ -1402,7 +1407,7 @@ function renderStudSessions(){
       <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
       <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
       <td style="color:var(--muted2);font-family:var(--mono);">${dur}</td><td></td>
-    </tr></tfoot></table>`;
+    </tr></tfoot></table></div>`;
 }
 
 let studChartMode='venue';
@@ -1515,7 +1520,7 @@ function renderStudTransfers(){
       <td>${partyBadge(snd,myName,t,'sender')}</td><td>${partyBadge(rcv,myName,t,'receiver')}</td>
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
-      <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+      <td><div class="row-actions"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></div></td>
     </tr>`;}).join('')}</tbody>
     <tfoot><tr class="summary-row">
       <td colspan="5" style="text-align:right;color:var(--muted2);font-size:11px;text-transform:uppercase;letter-spacing:.12em;">${rows.length} transfer${rows.length===1?'':'s'} &nbsp;·&nbsp; <span class="amt-in">In ${fm(sumIn)}</span> &nbsp;·&nbsp; <span class="amt-out">Out ${fm(sumOut)}</span>${sumMove?' &nbsp;·&nbsp; <span class="amt-move">Move '+fm(sumMove)+'</span>':''} &nbsp;·&nbsp; Net</td>
@@ -1761,7 +1766,7 @@ function renderAllSess(){
   const buyLbl=fltType==='online'?'Bal Start':fltType==='live'?'Buy-in':'In';
   const cashLbl=fltType==='online'?'Bal End':fltType==='live'?'Cash-out':'Out';
   el.innerHTML=`<div class="batch-bar${batchSelSess.size?' show':''}" id="batch-bar-sess-adm"><button class="btn-batch" onclick="openBatchEdit('sess')">Edit Selected (${batchSelSess.size})</button><span class="batch-count">${batchSelSess.size} selected</span></div>
-    <table>
+    <div class="table-scroll"><table>
     <thead><tr><th><input type="checkbox" class="batch-cb" onchange="toggleBatchAll('sess',this)" ${batchSelSess.size===rows.length&&rows.length?'checked':''}></th>${th('Student','student')}${th('Type','type')}${th('Date','date')}${th('Venue','venue')}${th('Format','format')}${th('Stakes','stakes')}${th(buyLbl,'buy_in')}${th(cashLbl,'cash_out')}${th('Result','profit')}${th('Duration','duration')}<th></th></tr></thead>
     <tbody>${rows.map(s=>sessRow(s,true,sm,true)).join('')}</tbody>
     <tfoot><tr class="summary-row">
@@ -1770,7 +1775,7 @@ function renderAllSess(){
       <td style="font-family:var(--mono);">${fm(tBuy)}</td><td style="font-family:var(--mono);">${fm(tCash)}</td>
       <td class="${pc}" style="font-family:var(--mono);font-weight:700;">${(tProfit>=0?'+':'')+fm(tProfit)}</td>
       <td style="color:var(--muted2);font-family:var(--mono);">${tHrs>0?tHrs.toFixed(1)+'h':(tHands>0?tHands.toLocaleString()+' hands':'—')}</td><td></td>
-    </tr></tfoot></table>`;
+    </tr></tfoot></table></div>`;
 }
 
 // ── ANALYTICS TAB ─────────────────────────────────────────────────────────────
@@ -1902,7 +1907,7 @@ function renderAdminTransfers(){
       <td class="${amtCls}">${fm(t.amount)}</td>
       <td style="color:var(--muted2);">${t.split_month||'—'}</td>
       <td style="color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${esc(t.notes||'—')}</td>
-      <td style="display:flex;gap:3px;"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></td>
+      <td><div class="row-actions"><button class="ib" onclick="editTransfer('${t.id}')">✎</button><button class="ib del" onclick="delTransfer('${t.id}')">✕</button></div></td>
     </tr>`;}).join('')}</tbody>
     <tfoot><tr class="summary-row">
       <td colspan="6" style="text-align:right;color:var(--muted2);font-size:11px;text-transform:uppercase;letter-spacing:.12em;">${rows.length} transfer${rows.length===1?'':'s'} &nbsp;·&nbsp; <span class="amt-out">Out ${fm(sumOut)}</span> &nbsp;·&nbsp; <span class="amt-in">In ${fm(sumIn)}</span>${sumMove?' &nbsp;·&nbsp; <span class="amt-move">Move '+fm(sumMove)+'</span>':''} &nbsp;·&nbsp; Net</td>
@@ -1949,7 +1954,7 @@ function renderBackerDashboard(){
       <div class="sc"><div class="sc-lbl">Net P&L (all students)</div><div class="sc-val ${totalNet>0?'pos':totalNet<0?'neg':'neu'}">${fm(totalNet)}</div></div>
       <div class="sc"><div class="sc-lbl">Backer Earnings (your cut)</div><div class="sc-val ${totalStakerEarnings>0?'pos':'neu'}">${fm(totalStakerEarnings)}</div></div>
       <div class="sc"><div class="sc-lbl">Total Makeup Owed</div><div class="sc-val ${totalMakeup>0?'neg':'pos'}">${totalMakeup>0?fm(totalMakeup):'Clear'}</div></div>
-      <div class="sc"><div class="sc-lbl">Live Bankroll Float</div><div class="sc-val neu">${fm(totalLiquidity)}</div></div>
+      <div class="sc"><div class="sc-lbl">Total Liquidity</div><div class="sc-val ${totalLiquidity>0?'pos':totalLiquidity<0?'neg':'neu'}">${fm(totalLiquidity)}</div></div>
       <div class="sc"><div class="sc-lbl">Active Alerts</div><div class="sc-val ${totalAlerts>0?'neg':'pos'}">${totalAlerts}</div></div>
     </div>
     <div class="card" style="margin-bottom:1rem;">
@@ -2690,7 +2695,7 @@ function renderStudExpenses(){
       <td style="color:var(--muted);font-size:11px;">${fmtDate(e.created_at?e.created_at.slice(0,10):'')}</td>
       <td class="amt-move">${fm(e.amount)}</td>
       <td style="color:var(--muted2);max-width:200px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
-      <td style="display:flex;gap:3px;"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></td>
+      <td><div class="row-actions"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></div></td>
     </tr>`).join('');
     html+=`</tbody></table>`;
   }
@@ -2757,7 +2762,7 @@ function renderAdminExpenses(){
       <td class="amt-in">${fm(e.amount)}</td>
       <td style="color:var(--muted2);max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(e.notes||'—')}</td>
       <td style="color:var(--muted);font-size:11px;">${e.paid_at?fmtDate(e.paid_at.slice(0,10)):'—'}</td>
-      <td style="display:flex;gap:3px;"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></td>
+      <td><div class="row-actions"><button class="ib" onclick="editExpense('${e.id}')">✎</button><button class="ib del" onclick="delExpense('${e.id}')">✕</button></div></td>
     </tr>`).join('');
     html+=`</tbody></table>`;
   }
@@ -3367,7 +3372,7 @@ function sessRow(s,showStud,sm,showType){
     <td title="${s.play_type==='online'?'Bankroll on site at start':'Chips on table at start'}">${fm(s.buy_in)}</td><td title="${s.play_type==='online'?'Bankroll on site at end':'Chips on table at end'}">${fm(s.cash_out)}</td>
     <td class="${pc}" style="font-weight:500;">${ps}</td>
     <td style="color:var(--muted2);">${durCell}</td>
-    <td style="display:flex;gap:3px;"><button class="ib" onclick="editSess('${s.id}')">✎</button><button class="ib del" onclick="delSess('${s.id}')">✕</button></td>
+    <td><div class="row-actions"><button class="ib" onclick="editSess('${s.id}')">✎</button><button class="ib del" onclick="delSess('${s.id}')">✕</button></div></td>
   </tr>`;
 }
 function calcRes(){const b=parseFloat($('f-buyin').value)||0,c=parseFloat($('f-cashout').value)||0,p=Math.round((c-b)*100)/100,el=$('f-result');el.value=p!==0?(p>0?'+':'-')+'$'+Math.abs(p).toFixed(2):'—';el.style.color=p>0?'var(--accent)':p<0?'var(--red)':'var(--muted2)';}
@@ -3415,22 +3420,29 @@ function calcBB100(sessions){let ws=0,th=0;for(const s of sessions){const bb=par
 function toast(msg,type='ok'){const t=$('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.classList.remove('show'),2800);}
 
 // ── BANKROLL / EXPOSURE HELPERS ──────────────────────────────────────────────
-// Compute per-venue bankroll for a student. Uses transfers + sessions.
-//   venue_balance = sum(transfers IN) - sum(transfers OUT) + sum(session profits at venue)
-// Also returns a 'liveRoll' bucket for live cash and a list of recent venues.
-function computeVenueBankrolls(studentId){
-  const sessions=(typeof allSess!=='undefined'&&allSess.length?allSess:(typeof mySess!=='undefined'?mySess:[])).filter(s=>s.student_id===studentId);
-  const transfers=(typeof allTransfers!=='undefined'&&allTransfers.length?allTransfers:(typeof myTransfers!=='undefined'?myTransfers:[])).filter(t=>t.student_id===studentId&&t.type!=='split');
+// Model:
+//   ONLINE: each site has its own running balance = backer deposits into that site
+//           + session profits on that site - withdrawals. Alert when bankroll at
+//           that site falls below 10 buy-ins of the most recent stake played there.
+//   LIVE:   a single "Live Roll" bucket per student. Backer→student transfers
+//           fund the roll; live session profits add/subtract; transfers back to
+//           the backer withdraw from the roll. Alert when the live roll falls
+//           below 7 buy-ins of the student's average live stake.
+function _xSessAll(){return (typeof allSess!=='undefined'&&allSess.length)?allSess:(typeof mySess!=='undefined'?mySess:[]);}
+function _xTransAll(){return (typeof allTransfers!=='undefined'&&allTransfers.length)?allTransfers:(typeof myTransfers!=='undefined'?myTransfers:[]);}
+function _isBackerString(v){return isBackerName(v);}
+// Per-ONLINE-venue bankrolls for a student. Returns array of {name, balance, ...}
+function computeOnlineVenueBankrolls(studentId){
+  const sessions=_xSessAll().filter(s=>s.student_id===studentId&&s.play_type==='online');
+  const transfers=_xTransAll().filter(t=>t.student_id===studentId&&t.type!=='split');
   const venues={};
-  // Discover venues from sessions
   for(const s of sessions){
     if(!s.venue)continue;
-    if(!venues[s.venue])venues[s.venue]={name:s.venue,balance:0,profit:0,deposits:0,withdrawals:0,play_type:s.play_type,last:null};
+    if(!venues[s.venue])venues[s.venue]={name:s.venue,balance:0,profit:0,deposits:0,withdrawals:0,play_type:'online',last:null};
     venues[s.venue].balance+=(+s.profit||0);
     venues[s.venue].profit+=(+s.profit||0);
     if(!venues[s.venue].last||(s.date>venues[s.venue].last))venues[s.venue].last=s.date;
   }
-  // Apply transfers — sender = withdrawal from that venue, receiver = deposit to that venue
   for(const t of transfers){
     const amt=+t.amount||0;
     if(t.sender&&venues[t.sender]){venues[t.sender].balance-=amt;venues[t.sender].withdrawals+=amt;}
@@ -3438,51 +3450,94 @@ function computeVenueBankrolls(studentId){
   }
   return Object.values(venues);
 }
-// Latest stake the student is playing at a given venue (defaults to highest seen)
+// Live Roll: single bucket per student.
+//   inflows  = backer→student transfers (and other non-venue inflows to the student)
+//   outflows = student→backer transfers (returns) and other non-venue outflows
+//   profits  = sum of all live session profits
+function computeLiveRoll(studentId){
+  const sessions=_xSessAll().filter(s=>s.student_id===studentId&&s.play_type==='live');
+  const transfers=_xTransAll().filter(t=>t.student_id===studentId&&t.type!=='split');
+  const stu=(allStuds||[]).find(s=>s.id===studentId);
+  const myName=stu?stu.name.toLowerCase():'';
+  let roll=0,deposits=0,withdrawals=0,profit=0;
+  // Walk transfers: backer → student means deposit into live roll; reverse means withdrawal.
+  // "Live Roll" or student-name receivers count as live deposits; sender = withdrawal.
+  for(const t of transfers){
+    const amt=+t.amount||0;
+    const sLC=(t.sender||'').toLowerCase(),rLC=(t.receiver||'').toLowerCase();
+    const sndBacker=_isBackerString(t.sender),rcvBacker=_isBackerString(t.receiver);
+    const sndIsStudent=sLC==='student'||sLC===myName;
+    const rcvIsStudent=rLC==='student'||rLC===myName;
+    if(sndBacker&&(rcvIsStudent||rLC==='live roll')){roll+=amt;deposits+=amt;}
+    else if(rcvBacker&&(sndIsStudent||sLC==='live roll')){roll-=amt;withdrawals+=amt;}
+    // Skip site-to-site and non-live transfers — those don't affect live roll
+  }
+  // Add live session profits
+  for(const s of sessions)profit+=(+s.profit||0);
+  roll+=profit;
+  return {roll:Math.round(roll*100)/100,deposits,withdrawals,profit,sessions:sessions.length};
+}
+// Latest stake at a venue (for per-venue alerts). Returns the highest stake seen recently.
 function recentStakeAtVenue(studentId,venue){
-  const ss=(typeof allSess!=='undefined'&&allSess.length?allSess:(typeof mySess!=='undefined'?mySess:[])).filter(s=>s.student_id===studentId&&s.venue===venue);
+  const ss=_xSessAll().filter(s=>s.student_id===studentId&&s.venue===venue);
   if(!ss.length)return null;
   ss.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  // Take stakes from the most recent 5 sessions
   const stakes=ss.slice(0,5).flatMap(s=>(s.stake_level||'').split(',').map(x=>x.trim())).filter(Boolean);
   if(!stakes.length)return null;
-  // Return the highest stake (most pessimistic for buy-in calc)
   stakes.sort((a,b)=>stakeVal(b)-stakeVal(a));
   return stakes[0];
 }
-// 1 buy-in = 100 BB. Returns dollar value, or null if can't determine
+// Median live stake for the student (for Live Roll alert threshold)
+function avgLiveStake(studentId){
+  const ss=_xSessAll().filter(s=>s.student_id===studentId&&s.play_type==='live');
+  if(!ss.length)return null;
+  // Take the most recent 10 sessions' stakes, return the median
+  const recent=ss.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+  const stakes=recent.flatMap(s=>(s.stake_level||'').split(',').map(x=>x.trim())).filter(Boolean);
+  if(!stakes.length)return null;
+  stakes.sort((a,b)=>stakeVal(a)-stakeVal(b));
+  return stakes[Math.floor(stakes.length/2)];
+}
 function buyInValue(stake){
   if(!stake)return null;
   const bb=parseBB(stake);
   if(bb)return bb*100;
-  // Live stake notation like "5/10" → big blind = 10
   const m=String(stake).match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
   if(m)return parseFloat(m[2])*100;
   return null;
 }
-// Compute "running low" alerts for a student. Live: <7 BI on Live Roll. Online: any venue with <10 BI.
+// Alerts: per-online-venue < 10 BI and Live Roll < 7 BI
 function bankrollAlerts(studentId){
   const alerts=[];
-  const venues=computeVenueBankrolls(studentId);
-  for(const v of venues){
+  // Online
+  for(const v of computeOnlineVenueBankrolls(studentId)){
     const stake=recentStakeAtVenue(studentId,v.name);
     const bi=buyInValue(stake);
     if(!bi||bi<=0)continue;
-    const threshold=v.play_type==='live'?7:10;
+    if(v.balance<=0)continue; // don't alert on sites with zero/negative balance — means no active money there
     const buyIns=v.balance/bi;
-    if(buyIns<threshold&&v.balance>0){
-      alerts.push({venue:v.name,balance:v.balance,stake,bi,buyIns:Math.floor(buyIns*10)/10,play_type:v.play_type,severity:buyIns<threshold/2?'critical':'low'});
+    if(buyIns<10){
+      alerts.push({type:'online',venue:v.name,balance:v.balance,stake,bi,buyIns:Math.floor(buyIns*10)/10,severity:buyIns<5?'critical':'low'});
     }
+  }
+  // Live Roll (one per student)
+  const lr=computeLiveRoll(studentId);
+  const liveStake=avgLiveStake(studentId);
+  const liveBI=buyInValue(liveStake);
+  if(liveBI&&liveBI>0&&lr.roll>0&&lr.roll/liveBI<7){
+    const bi=lr.roll/liveBI;
+    alerts.push({type:'live',venue:'Live Roll',balance:lr.roll,stake:liveStake,bi:liveBI,buyIns:Math.floor(bi*10)/10,severity:bi<3.5?'critical':'low'});
   }
   return alerts;
 }
-// Per-student summary stat for roster card / dashboards
+// Backwards-compat alias used by existing code paths
+function computeVenueBankrolls(studentId){return computeOnlineVenueBankrolls(studentId);}
+// Full exposure for dashboard
 function studentExposure(studentId){
-  const venues=computeVenueBankrolls(studentId);
-  const totalBalance=venues.reduce((a,v)=>a+v.balance,0);
-  const liveBalance=venues.filter(v=>v.play_type==='live').reduce((a,v)=>a+v.balance,0);
-  const onlineBalance=venues.filter(v=>v.play_type==='online').reduce((a,v)=>a+v.balance,0);
-  return {venues,totalBalance,liveBalance,onlineBalance,alerts:bankrollAlerts(studentId)};
+  const onlineVenues=computeOnlineVenueBankrolls(studentId);
+  const live=computeLiveRoll(studentId);
+  const onlineBalance=onlineVenues.filter(v=>v.balance>0).reduce((a,v)=>a+v.balance,0);
+  return {venues:onlineVenues,liveRoll:live,onlineBalance,liveBalance:live.roll,totalBalance:onlineBalance+live.roll,alerts:bankrollAlerts(studentId)};
 }
 
 // ── TRANSFER PARTY HELPERS ───────────────────────────────────────────────────
