@@ -1243,8 +1243,24 @@ function saveStudPrefs(){
 }
 
 function populateSessionDataLists(){
-  const hasActiveLive=myContracts.some(c=>c.play_type==='live'&&c.active!==false);
-  const isLive=me.play_types!=='online';
+  // Admin path: use global allSess for venue list, allContracts for live-roll check
+  if(isAdmin){
+    const sessionVenues=[...new Set((allSess||[]).map(s=>s.venue).filter(Boolean))].sort();
+    const vMenu=$('f-venue-menu');
+    if(vMenu){
+      vMenu.innerHTML=sessionVenues.map(v=>`<div class="cdd-opt" onclick="setCdd('f-venue','${v.replace(/'/g,"\\'")}','${v.replace(/'/g,"\\'")}',this)">${esc(v)}</div>`).join('');
+    }
+    renderStakeChips();
+    const rbMenu=$('f-rb-dest-menu');
+    if(rbMenu){
+      const stakers=(allStakers||[]).map(s=>s.name);
+      const destOpts=[...sessionVenues,...stakers.filter(s=>!sessionVenues.includes(s))];
+      rbMenu.innerHTML=destOpts.map(d=>`<div class="cdd-opt" onclick="setCdd('f-rb-dest','${d.replace(/'/g,"\\'")}','${d.replace(/'/g,"\\'")}',this)">${esc(d)}</div>`).join('');
+    }
+    return;
+  }
+  const hasActiveLive=(myContracts||[]).some(c=>c.play_type==='live'&&c.active!==false);
+  const isLive=me&&me.play_types!=='online';
   // Venue dropdown
   const sessionVenues=[...new Set(mySess.map(s=>s.venue).filter(Boolean))];
   const allVenues=[...new Set([...(isLive&&hasActiveLive?['Live Roll']:[]),...myVenues,...sessionVenues])];
@@ -1647,11 +1663,32 @@ async function loadAdminData(){
   if(backerScope){
     const myStaker=allStakers.find(k=>k.name&&k.name.toLowerCase()===backerScope.toLowerCase());
     if(myStaker){
-      const myStudentIds=new Set(allContracts.filter(c=>c.staker_id===myStaker.id).map(c=>c.student_id));
+      // Build a (studentId → set of allowed play_types) map from this backer's contracts
+      // so we don't show, e.g., Josh's online (Makaya) sessions to Ned (who only has
+      // Josh's live contract).
+      const myContractsByStu={};
+      for(const c of allContracts.filter(c=>c.staker_id===myStaker.id&&c.active!==false)){
+        if(!myContractsByStu[c.student_id])myContractsByStu[c.student_id]=new Set();
+        if(c.play_type==='both'){myContractsByStu[c.student_id].add('live');myContractsByStu[c.student_id].add('online');}
+        else myContractsByStu[c.student_id].add(c.play_type);
+      }
+      const myStudentIds=new Set(Object.keys(myContractsByStu));
+      const allowed=(sid,pt)=>myContractsByStu[sid]&&myContractsByStu[sid].has(pt);
       allStuds=allStuds.filter(s=>myStudentIds.has(s.id));
-      allSess=allSess.filter(s=>myStudentIds.has(s.student_id));
+      // Sessions: only those where the play_type is in this backer's contract set for that student
+      allSess=allSess.filter(s=>allowed(s.student_id,s.play_type));
+      // Contracts: only this backer's
       allContracts=allContracts.filter(c=>c.staker_id===myStaker.id);
-      allTransfers=allTransfers.filter(t=>t.student_id&&myStudentIds.has(t.student_id));
+      // Transfers: tied to this backer's contracts (via contract_id) OR to the student
+      // when contract_id is null (legacy rows). For multi-contract students, only keep
+      // transfers whose contract_id matches one of THIS backer's contracts.
+      const myContractIds=new Set(allContracts.map(c=>c.id));
+      allTransfers=allTransfers.filter(t=>{
+        if(!t.student_id||!myStudentIds.has(t.student_id))return false;
+        if(t.contract_id)return myContractIds.has(t.contract_id);
+        // Legacy fallback: include if the student has only ONE contract under any backer
+        return true;
+      });
       allExpenses=allExpenses.filter(e=>e.student_id&&myStudentIds.has(e.student_id));
       allStakers=[myStaker];
       allBankroll=[];
