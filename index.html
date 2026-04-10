@@ -576,6 +576,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <button class="tab-btn" onclick="aTab('analytics',this)">Analytics</button>
     <button class="tab-btn" onclick="aTab('transfers',this)">Transfers</button>
     <button class="tab-btn" onclick="aTab('roster',this)">Roster</button>
+    <button class="tab-btn" onclick="aTab('contracts',this)">Contracts</button>
     <button class="tab-btn" onclick="aTab('expenses',this)">Expenses</button>
     <button class="tab-btn" onclick="aTab('settings',this)">Settings</button>
   </div>
@@ -695,6 +696,40 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
           <div class="card-hd"><div class="card-title">🔑 Login IDs</div></div>
           <div id="a-ids-list" style="padding:.5rem;max-height:80vh;overflow-y:auto;"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- CONTRACTS TAB -->
+    <div class="tab-pane" id="a-tab-contracts">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">All Contracts</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <div class="cdd-wrap" style="width:120px;"><button class="cdd-trigger sm" id="a-flt-cstatus-cdd" onclick="toggleCdd('a-flt-cstatus-cdd','a-flt-cstatus-menu')"><span id="a-flt-cstatus-label">All status</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-cstatus-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('a-flt-cstatus','','All status',this);renderAllContracts()">All status</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-cstatus','active','Active',this);renderAllContracts()">Active</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-cstatus','inactive','Inactive',this);renderAllContracts()">Inactive</div>
+            </div></div>
+            <input type="hidden" id="a-flt-cstatus">
+            <div class="cdd-wrap" style="width:120px;"><button class="cdd-trigger sm" id="a-flt-ctype-cdd" onclick="toggleCdd('a-flt-ctype-cdd','a-flt-ctype-menu')"><span id="a-flt-ctype-label">All types</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-ctype-menu" style="display:none;">
+              <div class="cdd-opt selected" onclick="setCdd('a-flt-ctype','','All types',this);renderAllContracts()">All types</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-ctype','live','Live',this);renderAllContracts()"><span class="cdd-dot" style="background:var(--live)"></span>Live</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-ctype','online','Online',this);renderAllContracts()"><span class="cdd-dot" style="background:var(--online)"></span>Online</div>
+              <div class="cdd-opt" onclick="setCdd('a-flt-ctype','both','Both',this);renderAllContracts()">Both</div>
+            </div></div>
+            <input type="hidden" id="a-flt-ctype">
+            <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-cstaker-cdd" onclick="toggleCdd('a-flt-cstaker-cdd','a-flt-cstaker-menu')"><span id="a-flt-cstaker-label">All stakers</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-cstaker-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-cstaker','','All stakers',this);renderAllContracts()">All stakers</div></div></div>
+            <input type="hidden" id="a-flt-cstaker">
+            <div class="cdd-wrap" style="width:150px;"><button class="cdd-trigger sm" id="a-flt-cstud-cdd" onclick="toggleCdd('a-flt-cstud-cdd','a-flt-cstud-menu')"><span id="a-flt-cstud-label">All students</span><span class="cdd-arrow">▾</span></button>
+            <div class="cdd-menu sm" id="a-flt-cstud-menu" style="display:none;"><div class="cdd-opt selected" onclick="setCdd('a-flt-cstud2','','All students',this);renderAllContracts()">All students</div></div></div>
+            <input type="hidden" id="a-flt-cstud2">
+            <button class="btn btn-p btn-sm" onclick="openContractModal()">+ New Contract</button>
+          </div>
+        </div>
+        <div id="a-contracts-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
       </div>
     </div>
 
@@ -1151,7 +1186,7 @@ let batchSelSess=new Set(),batchSelTrans=new Set(),batchEditType='',batchAction=
 let curMode='live',loginMode='player';
 let idEntry='',pinEntry='';
 let activeFiltersS=[],activeFiltersA=[],activeFiltersAT=[],activeFiltersST=[],fpCtx='student';
-let studSessSort={col:'date',dir:'desc'},allSessSort={col:'date',dir:'desc'};
+let studSessSort={col:'date',dir:'desc'},allSessSort={col:'date',dir:'desc'},allContractSort={col:'student',dir:'asc'};
 let studTransSort={col:'date',dir:'desc'},adminTransSort={col:'date',dir:'desc'};
 let curTransferType='transfer';
 
@@ -1820,6 +1855,7 @@ async function loadAdminData(){
   }
   try{renderAdminExpenses();}catch(e){console.error('renderAdminExpenses',e);}
   try{renderStakersList();}catch(e){console.error('renderStakersList',e);}
+  try{renderAllContracts();}catch(e){console.error('renderAllContracts',e);}
 }
 
 // ── STUDENTS TAB ──────────────────────────────────────────────────────────────
@@ -2611,6 +2647,108 @@ async function saveContract(){
   toast('Contract saved','ok');cov('contract-overlay');loadAdminData();
 }
 
+// ── CONTRACTS TAB ─────────────────────────────────────────────────────────────
+function sortAllContracts(col){
+  allContractSort.dir=allContractSort.col===col?(allContractSort.dir==='asc'?'desc':'asc'):(col==='start_date'||col==='net'?'desc':'asc');
+  allContractSort.col=col;renderAllContracts();
+}
+function renderAllContracts(){
+  const fltStatus=$('a-flt-cstatus')?$('a-flt-cstatus').value:'';
+  const fltType=$('a-flt-ctype')?$('a-flt-ctype').value:'';
+  const fltStaker=$('a-flt-cstaker')?$('a-flt-cstaker').value:'';
+  const fltStud=$('a-flt-cstud2')?$('a-flt-cstud2').value:'';
+  const el=$('a-contracts-body');if(!el)return;
+  const sm={};allStuds.forEach(s=>sm[s.id]=s.name);
+  const km={};allStakers.forEach(k=>km[k.id]=k.name);
+
+  // Populate dynamic filter menus (staker + student) on first render
+  const cskm=$('a-flt-cstaker-menu');
+  if(cskm){
+    const opts=[{v:'',l:'All stakers'},...allStakers.map(k=>({v:k.id,l:k.name}))];
+    cskm.innerHTML=opts.map(o=>`<div class="cdd-opt${o.v===fltStaker?' selected':''}" onclick="setCdd('a-flt-cstaker','${o.v}','${esc(o.l)}',this);renderAllContracts()">${esc(o.l)}</div>`).join('');
+  }
+  const csm=$('a-flt-cstud-menu');
+  if(csm){
+    const opts=[{v:'',l:'All students'},...allStuds.map(s=>({v:s.id,l:s.name}))];
+    csm.innerHTML=opts.map(o=>`<div class="cdd-opt${o.v===fltStud?' selected':''}" onclick="setCdd('a-flt-cstud2','${o.v}','${esc(o.l)}',this);renderAllContracts()">${esc(o.l)}</div>`).join('');
+  }
+
+  let rows=[...allContracts];
+  if(fltStatus==='active')rows=rows.filter(c=>c.active!==false);
+  else if(fltStatus==='inactive')rows=rows.filter(c=>c.active===false);
+  if(fltType)rows=rows.filter(c=>c.play_type===fltType);
+  if(fltStaker)rows=rows.filter(c=>c.staker_id===fltStaker);
+  if(fltStud)rows=rows.filter(c=>c.student_id===fltStud);
+
+  if(!rows.length){el.innerHTML=emptyHtml('📋','No contracts found.');return;}
+
+  // Compute stats per contract
+  const enriched=rows.map(c=>{
+    const sessions=allSess.filter(s=>s.student_id===c.student_id&&(c.play_type==='both'||s.play_type===c.play_type));
+    const cs=calcContractStats(sessions,c,c.play_type==='both'?'live':c.play_type);
+    const studName=sm[c.student_id]||c.student_id;
+    const stakerName=km[c.staker_id]||c.staker_id;
+    return{c,cs,studName,stakerName,sessions:sessions.length};
+  });
+
+  // Sort
+  const{col,dir}=allContractSort;
+  enriched.sort((a,b)=>{
+    let av,bv;
+    if(col==='student'){av=a.studName.toLowerCase();bv=b.studName.toLowerCase();}
+    else if(col==='staker'){av=a.stakerName.toLowerCase();bv=b.stakerName.toLowerCase();}
+    else if(col==='type'){av=a.c.play_type;bv=b.c.play_type;}
+    else if(col==='status'){av=a.c.active?1:0;bv=b.c.active?1:0;}
+    else if(col==='start_date'){av=a.c.start_date||'';bv=b.c.start_date||'';}
+    else if(col==='end_date'){av=a.c.end_date||'9999';bv=b.c.end_date||'9999';}
+    else if(col==='net'){av=a.cs.netProfit;bv=b.cs.netProfit;}
+    else if(col==='makeup'){av=a.cs.makeup;bv=b.cs.makeup;}
+    else if(col==='sessions'){av=a.sessions;bv=b.sessions;}
+    else{av=0;bv=0;}
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return dir==='asc'?(av-bv):(bv-av);
+  });
+
+  const arrow=c=>allContractSort.col!==c?'<span style="opacity:.2;margin-left:3px;">↕</span>':(allContractSort.dir==='asc'?'<span style="margin-left:3px;color:var(--accent);">↑</span>':'<span style="margin-left:3px;color:var(--accent);">↓</span>');
+  const thS='cursor:pointer;user-select:none;white-space:nowrap;',th=(l,c)=>`<th style="${thS}" onclick="sortAllContracts('${c}')">${l}${arrow(c)}</th>`;
+
+  const totalNet=enriched.reduce((a,r)=>a+r.cs.netProfit,0);
+  const totalStudCut=enriched.reduce((a,r)=>a+(r.cs.studentTake||0),0);
+  const totalStakerCut=enriched.reduce((a,r)=>a+(r.cs.stakerTake||0),0);
+  const totalMakeup=enriched.reduce((a,r)=>a+r.cs.makeup,0);
+
+  el.innerHTML=`<div class="table-scroll"><table>
+    <thead><tr>${th('Student','student')}${th('Staker','staker')}${th('Type','type')}${th('Status','status')}${th('Start','start_date')}${th('End','end_date')}${th('Sessions','sessions')}<th>Splits</th>${th('Makeup','makeup')}${th('Net P&L','net')}<th>Student Cut</th><th>Staker Cut</th><th></th></tr></thead>
+    <tbody>${enriched.map(r=>{
+      const c=r.c;
+      const splitPills=parseSplits(c.splits,c.play_type).map(t=>`<span class="split-pill" style="font-size:10px;padding:1px 5px;">${t.max!=null?fm(t.min)+'-'+fm(t.max):fm(t.min)+'+'}: ${t.pct}%</span>`).join(' ');
+      return`<tr>
+        <td style="cursor:pointer;color:var(--accent);font-weight:600;" onclick="openStudInfo('${c.student_id}')">${esc(r.studName)}</td>
+        <td style="cursor:pointer;color:var(--accent);" onclick="openStakerInfo('${c.staker_id}')">${esc(r.stakerName)}</td>
+        <td><span class="bdg ${c.play_type==='live'?'b-live':c.play_type==='online'?'b-online':'b-act'}">${c.play_type}</span></td>
+        <td><span class="bdg ${c.active!==false?'b-act':'b-off'}">${c.active!==false?'Active':'Inactive'}</span></td>
+        <td style="color:var(--muted);font-size:11px;">${fmtDate(c.start_date)}</td>
+        <td style="color:var(--muted);font-size:11px;">${c.end_date?fmtDate(c.end_date):'<span style="color:var(--muted2);">Open</span>'}</td>
+        <td style="color:var(--muted2);">${r.sessions}</td>
+        <td style="white-space:nowrap;">${splitPills||'—'}</td>
+        <td style="color:${r.cs.makeup>0?'var(--red)':'var(--muted2)'}">${r.cs.makeup>0?fm(r.cs.makeup):'—'}</td>
+        <td class="${r.cs.netProfit>0?'pp':r.cs.netProfit<0?'pn':''}" style="font-weight:600;">${(r.cs.netProfit>=0?'+':'')+fm(r.cs.netProfit)}</td>
+        <td style="color:var(--accent);">${fm(r.cs.studentTake)}</td>
+        <td style="color:var(--muted2);">${fm(r.cs.stakerTake)}</td>
+        <td><div class="row-actions"><button class="ib" onclick="editContract('${c.id}')">✎</button><button class="ib del" onclick="delContract('${c.id}')">✕</button></div></td>
+      </tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr class="summary-row">
+      <td colspan="8" style="font-size:11px;text-transform:uppercase;color:var(--muted2);">${enriched.length} contract${enriched.length===1?'':'s'}</td>
+      <td style="color:${totalMakeup>0?'var(--red)':'var(--muted2)'}">${totalMakeup>0?fm(totalMakeup):'—'}</td>
+      <td class="${totalNet>0?'pp':totalNet<0?'pn':''}" style="font-weight:700;">${(totalNet>=0?'+':'')+fm(totalNet)}</td>
+      <td style="color:var(--accent);font-weight:700;">${fm(totalStudCut)}</td>
+      <td style="font-weight:700;">${fm(totalStakerCut)}</td>
+      <td></td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
 // ── STAKER CRUD ───────────────────────────────────────────────────────────────
 function openStakerModal(){editStakerId=null;$('staker-modal-title').textContent='Add Backer';$('sk-name').value='';$('sk-notes').value='';$('staker-save-btn').textContent='Add Backer';ov('staker-overlay');}
 function editStaker(id){const sk=allStakers.find(x=>x.id===id);if(!sk)return;editStakerId=id;$('staker-modal-title').textContent='Edit Backer';$('sk-name').value=sk.name;$('sk-notes').value=sk.notes||'';$('staker-save-btn').textContent='Save Changes';ov('staker-overlay');}
@@ -3135,6 +3273,7 @@ function aTab(name,btn){
   btn.classList.add('active');
   if(name==='analytics')renderAnalyticsTab();
   if(name==='students')renderStudentsTab();
+  if(name==='contracts')renderAllContracts();
   if(name==='expenses')renderAdminExpenses();
 }
 
