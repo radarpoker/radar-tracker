@@ -4173,6 +4173,26 @@ function partyKind(v,studName){
   if(lc==='bank'||lc==='crypto')return 'other';
   return 'site';
 }
+// Distinct color per backer
+const BACKER_COLORS=[
+  {color:'#f97316',border:'rgba(249,115,22,.4)',bg:'rgba(249,115,22,.08)'},
+  {color:'#a78bfa',border:'rgba(167,139,250,.4)',bg:'rgba(167,139,250,.08)'},
+  {color:'#34d399',border:'rgba(52,211,153,.4)',bg:'rgba(52,211,153,.08)'},
+  {color:'#f472b6',border:'rgba(244,114,182,.4)',bg:'rgba(244,114,182,.08)'},
+  {color:'#60a5fa',border:'rgba(96,165,250,.4)',bg:'rgba(96,165,250,.08)'},
+  {color:'#fbbf24',border:'rgba(251,191,36,.4)',bg:'rgba(251,191,36,.08)'},
+];
+const BACKER_COLOR_MAP={'radar poker':0,'ned':1,'makaya':2};
+function backerColorStyle(name){
+  const lc=(name||'').toLowerCase();
+  let idx=BACKER_COLOR_MAP[lc];
+  if(idx===undefined){
+    const pos=(allStakers||[]).findIndex(s=>s.name&&s.name.toLowerCase()===lc);
+    idx=pos>=0?pos%BACKER_COLORS.length:BACKER_COLORS.length-1;
+  }
+  const c=BACKER_COLORS[idx]||BACKER_COLORS[BACKER_COLORS.length-1];
+  return `color:${c.color};border-color:${c.border};background:${c.bg};`;
+}
 function partyBadge(v,studName,t,side){
   if(!v)return '<span style="color:var(--muted);">—</span>';
   let display=v;
@@ -4202,7 +4222,10 @@ function partyBadge(v,studName,t,side){
   // Strip trailing " Account" suffix (e.g. "Stake.us Account" → "Stake.us")
   display=display.replace(/\s+Account$/i,'');
   const k=partyKind(display,studName);
-  const cls=k==='backer'?'b-pty-backer':k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
+  if(k==='backer'){
+    return `<span class="bdg" style="${backerColorStyle(display)}">${esc(display)}</span>`;
+  }
+  const cls=k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
   return `<span class="bdg ${cls}">${esc(display)}</span>`;
 }
 // ── BACKER / SITE RESOLUTION ─────────────────────────────────────────────────
