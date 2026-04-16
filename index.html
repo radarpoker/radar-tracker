@@ -4191,6 +4191,16 @@ function partyBadge(v,studName,t,side){
     const resolved=resolveSiteFromNotes(t,side);
     if(resolved)display=resolved;
   }
+  // Strip student name prefix from stored values like "Josh Stake.us Account" → "Stake.us"
+  // and "Josh Live Bankroll" → "Live Bankroll", "Sasha Live Bankroll" → "Live Bankroll"
+  if(studName){
+    const prefix=studName.toLowerCase()+' ';
+    if(display.toLowerCase().startsWith(prefix)){
+      display=display.slice(studName.length+1);
+    }
+  }
+  // Strip trailing " Account" suffix (e.g. "Stake.us Account" → "Stake.us")
+  display=display.replace(/\s+Account$/i,'');
   const k=partyKind(display,studName);
   const cls=k==='backer'?'b-pty-backer':k==='student'?'b-pty-student':k==='site'?'b-pty-site':'b-pty-other';
   return `<span class="bdg ${cls}">${esc(display)}</span>`;
