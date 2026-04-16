@@ -295,6 +295,26 @@ tfoot .summary-row td{background:var(--s1);font-weight:600;border-top:1px solid 
 .transfer-type-tab{display:flex;gap:6px;margin-bottom:1rem}
 .ttype-btn{padding:5px 14px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .12s}
 .ttype-btn.active{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+/* ── Transfer Wizard ── */
+.wiz-step{display:none}.wiz-step.active{display:block}
+.wiz-big-btns{display:flex;gap:10px;margin:1rem 0;flex-wrap:wrap}
+.wiz-big-btn{flex:1;min-width:120px;padding:14px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--s1);color:var(--text);font-family:var(--mono);font-size:13px;cursor:pointer;text-align:center;transition:all .15s;line-height:1.4}
+.wiz-big-btn:hover{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+.wiz-big-btn.selected{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim)}
+.wiz-big-btn.live-btn{border-color:var(--live);color:var(--live)}
+.wiz-big-btn.live-btn.selected,.wiz-big-btn.live-btn:hover{background:rgba(251,191,36,.08)}
+.wiz-big-btn.online-btn{border-color:var(--online);color:var(--online)}
+.wiz-big-btn.online-btn.selected,.wiz-big-btn.online-btn:hover{background:rgba(96,165,250,.08)}
+.wiz-big-btn.backer-btn{border-color:var(--accent-border);color:var(--accent)}
+.wiz-big-btn.backer-btn.selected,.wiz-big-btn.backer-btn:hover{background:var(--accent-dim)}
+.wiz-big-btn.student-btn{border-color:var(--orange);color:var(--orange)}
+.wiz-big-btn.student-btn.selected,.wiz-big-btn.student-btn:hover{background:rgba(251,146,60,.08)}
+.wiz-big-btn.expense-btn{border-color:var(--muted);color:var(--muted)}
+.wiz-big-btn.expense-btn.selected,.wiz-big-btn.expense-btn:hover{background:rgba(148,163,184,.08)}
+.wiz-sub{font-size:11px;color:var(--muted2);margin-top:3px}
+.wiz-breadcrumb{font-size:11px;color:var(--muted2);margin-bottom:1rem;display:flex;gap:6px;align-items:center}
+.wiz-breadcrumb .crumb-active{color:var(--accent)}
+.wiz-breadcrumb .sep{color:var(--border2)}
 .split-autofill{background:var(--s1);border:1px solid var(--border2);border-radius:var(--r2);padding:.9rem;margin-bottom:.9rem}
 .split-autofill-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.6rem}
 
@@ -515,7 +535,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
             <input type="hidden" id="s-flt-ttype">
             <div id="st-filter-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
             <button class="filter-btn" id="st-filter-btn" onclick="openFP('stransfer')">⊞ Filter</button>
-            <button class="btn btn-p btn-sm" onclick="openTransferModal()">+ New Transfer</button>
+            <button class="btn btn-p btn-sm" onclick="isAdmin?openTransferModal():openTransferWizard()">+ New Transfer</button>
           </div>
         </div>
         <div id="s-transfers-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
@@ -1036,6 +1056,52 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <div class="form-footer">
       <button class="btn btn-g" onclick="cov('transfer-overlay')">Cancel</button>
       <button class="btn btn-p" id="transfer-save-btn" onclick="saveTransfer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STUDENT TRANSFER WIZARD ══ -->
+<div class="overlay" id="tx-wizard-overlay" onclick="oout(event,'tx-wizard-overlay')">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-hd"><h3 id="tx-wiz-title">New Transfer</h3><button class="mclose" onclick="cov('tx-wizard-overlay')">×</button></div>
+
+    <!-- Step 1: Play type (only shown if student has both) -->
+    <div class="wiz-step" id="wiz-step-type">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:.75rem;">Which contract is this for?</div>
+      <div class="wiz-big-btns">
+        <button class="wiz-big-btn live-btn" onclick="wizSetType('live')">🟡 Live<div class="wiz-sub">Live bankroll</div></button>
+        <button class="wiz-big-btn online-btn" onclick="wizSetType('online')">🔵 Online<div class="wiz-sub">Stake.us / sites</div></button>
+      </div>
+    </div>
+
+    <!-- Step 2: Direction -->
+    <div class="wiz-step" id="wiz-step-dir">
+      <div class="wiz-breadcrumb" id="wiz-bc-dir"></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:.75rem;">What type of transaction?</div>
+      <div class="wiz-big-btns">
+        <button class="wiz-big-btn backer-btn" onclick="wizSetDir('in')">⬇ Backer → Me<div class="wiz-sub">Deposit / advance</div></button>
+        <button class="wiz-big-btn student-btn" onclick="wizSetDir('out')">⬆ Me → Backer<div class="wiz-sub">Withdrawal / payback</div></button>
+        <button class="wiz-big-btn expense-btn" onclick="wizGoExpense()">💳 Expense<div class="wiz-sub">Reimbursement</div></button>
+      </div>
+    </div>
+
+    <!-- Step 3: Amount + location + notes -->
+    <div class="wiz-step" id="wiz-step-form">
+      <div class="wiz-breadcrumb" id="wiz-bc-form"></div>
+      <div class="fr">
+        <div class="fld"><label>Date</label><input type="date" id="wiz-date"></div>
+        <div class="fld"><label>Amount ($)</label><input type="number" id="wiz-amount" placeholder="0" min="0"></div>
+      </div>
+      <div class="fld" id="wiz-loc-wrap"><label id="wiz-loc-label">Location</label>
+        <div class="cdd-wrap"><button class="cdd-trigger" id="wiz-loc-cdd" onclick="toggleCdd('wiz-loc-cdd','wiz-loc-menu')"><span id="wiz-loc-lbl" style="color:var(--muted2);">Select…</span><span class="cdd-arrow">▾</span></button>
+        <div class="cdd-menu" id="wiz-loc-menu" style="display:none;"></div></div>
+        <input type="hidden" id="wiz-loc">
+      </div>
+      <div class="fld"><label>Method / Notes <span style="color:var(--muted2);font-weight:400">(optional)</span></label><textarea id="wiz-notes" placeholder="e.g. Zelle, Venmo, Bitcoin…" style="min-height:50px;"></textarea></div>
+      <div class="form-footer">
+        <button class="btn btn-g" onclick="wizBack()">← Back</button>
+        <button class="btn btn-p" id="wiz-save-btn" onclick="wizSave()">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3075,6 +3141,134 @@ async function delTransfer(id){
   const{error}=await SB.from('transfers').delete().eq('id',id);
   if(error){toast('Delete failed','err');return;}
   toast('Transfer deleted','ok');isAdmin?loadAdminData():loadStudData();
+}
+
+// ── STUDENT TRANSFER WIZARD ───────────────────────────────────────────────────
+let wizPlayType=null; // 'live' | 'online'
+let wizDir=null;      // 'in' | 'out'
+
+function openTransferWizard(){
+  wizPlayType=null;wizDir=null;
+  $('tx-wiz-title').textContent='New Transfer';
+  $('wiz-date').value=new Date().toISOString().slice(0,10);
+  $('wiz-amount').value='';$('wiz-notes').value='';
+  $('wiz-loc').value='';
+  const wll=$('wiz-loc-lbl');if(wll){wll.textContent='Select…';wll.style.color='var(--muted2)';}
+  // Determine if student has both live and online active contracts
+  const activeC=myContracts.filter(c=>c.active!==false);
+  const hasLive=activeC.some(c=>c.play_type==='live'||c.play_type==='both');
+  const hasOnline=activeC.some(c=>c.play_type==='online'||c.play_type==='both');
+  if(hasLive&&hasOnline){
+    wizShowStep('type');
+  } else {
+    // Auto-select the only play type, skip to direction step
+    wizPlayType=hasOnline?'online':'live';
+    wizShowStep('dir');
+  }
+  ov('tx-wizard-overlay');
+}
+function wizShowStep(step){
+  ['type','dir','form'].forEach(s=>$('wiz-step-'+s).classList.remove('active'));
+  $('wiz-step-'+step).classList.add('active');
+  if(step==='dir')wizBuildBreadcrumb('dir');
+  if(step==='form')wizBuildBreadcrumb('form');
+}
+function wizBuildBreadcrumb(step){
+  const typeLabel=wizPlayType?`<span style="color:${wizPlayType==='live'?'var(--live)':'var(--online)'}">${wizPlayType==='live'?'🟡 Live':'🔵 Online'}</span>`:'';
+  const dirLabel=wizDir?(wizDir==='in'?'<span style="color:var(--accent)">Backer → Me</span>':'<span style="color:var(--orange)">Me → Backer</span>'):'';
+  const sep='<span class="sep">›</span>';
+  let html=typeLabel;
+  if(step==='form'&&dirLabel)html+=(html?sep:'')+dirLabel;
+  const el=$('wiz-bc-'+step);if(el)el.innerHTML=html;
+}
+function wizSetType(type){
+  wizPlayType=type;
+  wizShowStep('dir');
+}
+function wizSetDir(dir){
+  wizDir=dir;
+  // Build location dropdown
+  const activeC=myContracts.filter(c=>c.active!==false);
+  let locations=[];
+  if(wizPlayType==='live'){
+    locations=['Live Bankroll'];
+  } else {
+    // Online: use venues from myVenues that appear in online sessions, or all saved online venues
+    const onlineSessVenues=[...new Set(mySess.filter(s=>s.play_type==='online').map(s=>s.venue).filter(Boolean))];
+    locations=[...new Set([...myVenues.filter(v=>!['Live Roll','Live Bankroll'].includes(v)),...onlineSessVenues])].sort();
+    if(!locations.length)locations=['Online Bankroll'];
+  }
+  const menu=$('wiz-loc-menu');
+  if(menu){
+    const col=wizPlayType==='live'?'var(--live)':'var(--online)';
+    menu.innerHTML=locations.map(l=>`<div class="cdd-opt" onclick="wizPickLoc('${l.replace(/'/g,"\\'")}','${col}')"><span class="cdd-dot" style="background:${col}"></span>${esc(l)}</div>`).join('');
+  }
+  const locLabel=$('wiz-loc-label');
+  if(locLabel)locLabel.textContent=dir==='in'?'Deposit Location':'Withdrawal Location';
+  // Auto-select if only one option
+  if(locations.length===1){
+    wizPickLoc(locations[0],wizPlayType==='live'?'var(--live)':'var(--online)');
+  }
+  wizShowStep('form');
+}
+function wizPickLoc(val,col){
+  $('wiz-loc').value=val;
+  const lbl=$('wiz-loc-lbl');
+  if(lbl){
+    lbl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:${col};display:inline-block;flex-shrink:0;"></span>${esc(val)}</span>`;
+    lbl.style.color='var(--text)';
+  }
+  const menu=$('wiz-loc-menu');if(menu)menu.style.display='none';
+}
+function wizGoExpense(){
+  cov('tx-wizard-overlay');
+  openExpenseModal();
+}
+function wizBack(){
+  const activeC=myContracts.filter(c=>c.active!==false);
+  const hasLive=activeC.some(c=>c.play_type==='live'||c.play_type==='both');
+  const hasOnline=activeC.some(c=>c.play_type==='online'||c.play_type==='both');
+  // Figure out which step is active and go back one
+  if($('wiz-step-form').classList.contains('active')){
+    wizDir=null;wizShowStep('dir');
+  } else if($('wiz-step-dir').classList.contains('active')){
+    if(hasLive&&hasOnline){wizPlayType=null;wizShowStep('type');}
+    else cov('tx-wizard-overlay');
+  } else {
+    cov('tx-wizard-overlay');
+  }
+}
+async function wizSave(){
+  const date=$('wiz-date').value;
+  const amount=parseFloat($('wiz-amount').value)||0;
+  const loc=$('wiz-loc').value;
+  const notes=$('wiz-notes').value.trim();
+  if(!date||!amount){toast('Date and amount required','err');return;}
+  if(!loc){toast('Please select a location','err');return;}
+  // Derive sender/receiver from direction
+  // Find the backer name for the relevant contract
+  const activeC=myContracts.filter(c=>c.active!==false&&(c.play_type===wizPlayType||c.play_type==='both'));
+  const contract=activeC[0];
+  const staker=contract?allStakers.find(k=>k.id===contract.staker_id):null;
+  const backerName=staker?staker.name:'Backer';
+  const sender=wizDir==='in'?backerName:'Student';
+  const receiver=wizDir==='in'?'Student':backerName;
+  const category=wizDir==='in'?'bankroll_deposit':'bankroll_withdrawal';
+  const noteParts=[];
+  noteParts.push(`Dest: ${loc}`);
+  if(notes)noteParts.push(notes);
+  const btn=$('wiz-save-btn');btn.textContent='Saving…';btn.disabled=true;
+  const row={
+    type:'transfer',
+    student_id:me.id,
+    contract_id:contract?contract.id:null,
+    date,sender,receiver,amount,category,
+    notes:noteParts.join(' | ')||null
+  };
+  const{error}=await SB.from('transfers').insert([row]);
+  btn.textContent='Save';btn.disabled=false;
+  if(error){toast('Error: '+error.message,'err');return;}
+  toast('Transfer saved','ok');cov('tx-wizard-overlay');loadStudData();
 }
 
 // ── EXPENSES ─────────────────────────────────────────────────────────────────
