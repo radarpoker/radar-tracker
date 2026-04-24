@@ -597,6 +597,7 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
     <button class="tab-btn" onclick="aTab('transfers',this)">Transfers</button>
     <button class="tab-btn" onclick="aTab('roster',this)">Roster</button>
     <button class="tab-btn" onclick="aTab('contracts',this)">Contracts</button>
+    <button class="tab-btn" onclick="aTab('trainer',this)">Fish Trainer</button>
     <button class="tab-btn" onclick="aTab('expenses',this)">Expenses</button>
     <button class="tab-btn" onclick="aTab('settings',this)">Settings</button>
   </div>
@@ -750,6 +751,17 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
           </div>
         </div>
         <div id="a-contracts-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- FISH TRAINER TAB -->
+    <div class="tab-pane" id="a-tab-trainer">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title">Fish Trainer Stats</div>
+          <div style="color:var(--muted);font-size:12px;">Click a row to see session history</div>
+        </div>
+        <div id="a-trainer-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
       </div>
     </div>
 
@@ -1228,6 +1240,13 @@ tr.batch-sel{background:rgba(74,222,128,.06)!important}
       <button class="btn btn-g" onclick="cov('batch-edit-overlay')">Cancel</button>
       <button class="btn btn-p" id="batch-apply-btn" onclick="applyBatchEdit()" disabled>Apply</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="trainer-history-overlay" onclick="oout(event,'trainer-history-overlay')">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-hd"><h3 id="trainer-history-title">Session History</h3><button class="mclose" onclick="cov('trainer-history-overlay')">×</button></div>
+    <div id="trainer-history-body"><div class="loading"><span class="spinner"></span>Loading…</div></div>
   </div>
 </div>
 
@@ -3307,6 +3326,135 @@ function renderStudExpenses(){
   el.innerHTML=html;
 }
 
+// ── FISH TRAINER TAB ─────────────────────────────────────────────────────────
+let _trainerRoster=null;          // cached roster rows
+let _trainerSort={key:'last_played_at',dir:'desc'};
+
+async function renderTrainerTab(){
+  const el=$('a-trainer-body');
+  el.innerHTML=`<div class="loading"><span class="spinner"></span>Loading…</div>`;
+  try{
+    const{data,error}=await SB.from('trainer_admin_roster').select('*');
+    if(error){el.innerHTML=`<div style="padding:1rem;color:var(--red);">Error loading roster: ${esc(error.message)}</div>`;return;}
+    _trainerRoster=data||[];
+    // Apply backer scope if viewing as a backer-scoped admin
+    if(backerScope){
+      const myStudIds=new Set(allStuds.map(s=>s.id));
+      _trainerRoster=_trainerRoster.filter(r=>myStudIds.has(r.student_id));
+    }
+    drawTrainerTable();
+  }catch(e){
+    el.innerHTML=`<div style="padding:1rem;color:var(--red);">Error: ${esc(e.message||String(e))}</div>`;
+  }
+}
+
+function sortTrainer(key){
+  if(_trainerSort.key===key){_trainerSort.dir=_trainerSort.dir==='asc'?'desc':'asc';}
+  else{_trainerSort.key=key;_trainerSort.dir=key==='student_name'?'asc':'desc';}
+  drawTrainerTable();
+}
+
+function drawTrainerTable(){
+  const el=$('a-trainer-body');
+  if(!_trainerRoster||!_trainerRoster.length){
+    el.innerHTML=emptyHtml('🎯','No trainer stats yet. Students need an email set in their profile to appear here.');
+    return;
+  }
+  const{key,dir}=_trainerSort;
+  const sorted=[..._trainerRoster].sort((a,b)=>{
+    const av=a[key],bv=b[key];
+    // nulls go last regardless of direction
+    if(av===null&&bv===null)return 0;
+    if(av===null)return 1;
+    if(bv===null)return -1;
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return dir==='asc'?av-bv:bv-av;
+  });
+  const arrow=k=>key===k?(dir==='asc'?' ▲':' ▼'):'';
+  let html=`<table class="tbl"><thead><tr>
+    <th style="cursor:pointer;" onclick="sortTrainer('student_name')">Name${arrow('student_name')}</th>
+    <th style="cursor:pointer;text-align:right;" onclick="sortTrainer('hands_played')">Hands Played${arrow('hands_played')}</th>
+    <th style="cursor:pointer;text-align:right;" onclick="sortTrainer('hands_correct')">Correct${arrow('hands_correct')}</th>
+    <th style="cursor:pointer;text-align:right;" onclick="sortTrainer('score_pct')">Score %${arrow('score_pct')}</th>
+    <th style="cursor:pointer;" onclick="sortTrainer('last_played_at')">Last Played${arrow('last_played_at')}</th>
+  </tr></thead><tbody>`;
+  sorted.forEach(r=>{
+    const hp=r.hands_played||0;
+    const hc=r.hands_correct||0;
+    const pct=r.score_pct;
+    const pctStr=pct===null?'—':pct.toFixed(1)+'%';
+    const pctColor=pct===null?'var(--muted)':pct>=70?'var(--accent)':pct>=50?'var(--text)':'var(--red)';
+    const lp=r.last_played_at?fmtTrainerDate(r.last_played_at):'—';
+    const lpColor=r.last_played_at?'var(--text)':'var(--muted)';
+    const canClick=hp>0?'cursor:pointer;':'';
+    const click=hp>0?`onclick="openTrainerHistory('${r.auth_user_id}','${esc(r.student_name).replace(/'/g,"\\'")}')"`:'';
+    html+=`<tr style="${canClick}" ${click}>
+      <td>${esc(r.student_name)}</td>
+      <td style="text-align:right;">${hp.toLocaleString()}</td>
+      <td style="text-align:right;">${hc.toLocaleString()}</td>
+      <td style="text-align:right;color:${pctColor};font-weight:600;">${pctStr}</td>
+      <td style="color:${lpColor};">${lp}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>`;
+  el.innerHTML=html;
+}
+
+function fmtTrainerDate(ts){
+  if(!ts)return '—';
+  const d=new Date(ts);
+  const now=new Date();
+  const diff=(now-d)/1000;
+  if(diff<60)return 'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  if(diff<604800)return Math.floor(diff/86400)+'d ago';
+  return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);
+}
+
+async function openTrainerHistory(authUserId,studentName){
+  $('trainer-history-title').textContent=studentName+' — Trainer History';
+  const body=$('trainer-history-body');
+  body.innerHTML=`<div class="loading"><span class="spinner"></span>Loading…</div>`;
+  ov('trainer-history-overlay');
+  try{
+    const{data,error}=await SB.from('trainer_sessions')
+      .select('id,config,started_at,ended_at,hands_played,hands_correct')
+      .eq('user_id',authUserId)
+      .order('started_at',{ascending:false})
+      .limit(100);
+    if(error){body.innerHTML=`<div style="padding:1rem;color:var(--red);">${esc(error.message)}</div>`;return;}
+    if(!data||!data.length){body.innerHTML=emptyHtml('🎯','No sessions logged.');return;}
+    let html=`<table class="tbl"><thead><tr>
+      <th>Config</th>
+      <th>Started</th>
+      <th style="text-align:right;">Hands</th>
+      <th style="text-align:right;">Correct</th>
+      <th style="text-align:right;">%</th>
+    </tr></thead><tbody>`;
+    data.forEach(s=>{
+      const hp=s.hands_played||0;
+      const hc=s.hands_correct||0;
+      const pct=hp>0?(100*hc/hp):null;
+      const pctStr=pct===null?'—':pct.toFixed(1)+'%';
+      const pctColor=pct===null?'var(--muted)':pct>=70?'var(--accent)':pct>=50?'var(--text)':'var(--red)';
+      const dt=new Date(s.started_at);
+      const dateStr=(dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2)+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
+      html+=`<tr>
+        <td style="font-family:var(--mono);font-size:12px;">${esc(s.config)}</td>
+        <td style="color:var(--muted);font-size:12px;">${dateStr}</td>
+        <td style="text-align:right;">${hp}</td>
+        <td style="text-align:right;">${hc}</td>
+        <td style="text-align:right;color:${pctColor};font-weight:600;">${pctStr}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table>`;
+    body.innerHTML=html;
+  }catch(e){
+    body.innerHTML=`<div style="padding:1rem;color:var(--red);">${esc(e.message||String(e))}</div>`;
+  }
+}
+
 function renderAdminExpenses(){
   const fltStud=$('a-flt-estud')?$('a-flt-estud').value:'';
   let rows=allExpenses;
@@ -3468,6 +3616,7 @@ function aTab(name,btn){
   if(name==='analytics')renderAnalyticsTab();
   if(name==='students')renderStudentsTab();
   if(name==='contracts')renderAllContracts();
+  if(name==='trainer')renderTrainerTab();
   if(name==='expenses')renderAdminExpenses();
 }
 
